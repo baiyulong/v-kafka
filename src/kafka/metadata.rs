@@ -60,7 +60,11 @@ impl PartitionMeta {
 
 /// Fetch and parse cluster metadata into our cache model
 pub fn fetch_cluster_metadata(config: &ClientConfig, timeout: Duration) -> Result<CachedMetadata> {
-    let consumer: BaseConsumer = config.create()?;
+    let mut cfg = config.clone();
+    if cfg.get("group.id").is_none() {
+        cfg.set("group.id", "v-kafka-inspector");
+    }
+    let consumer: BaseConsumer = cfg.create()?;
     let raw: Metadata = consumer.fetch_metadata(None, timeout)?;
 
     let brokers: Vec<BrokerMeta> = raw.brokers().iter().map(|b| BrokerMeta {
@@ -100,7 +104,11 @@ pub fn fetch_watermarks(
     topic: &str,
     timeout: Duration,
 ) -> Result<Vec<(i32, i64, i64)>> {
-    let consumer: BaseConsumer = config.create()?;
+    let mut cfg = config.clone();
+    if cfg.get("group.id").is_none() {
+        cfg.set("group.id", "v-kafka-inspector");
+    }
+    let consumer: BaseConsumer = cfg.create()?;
 
     // First fetch metadata to discover partition count
     let meta = consumer.fetch_metadata(Some(topic), timeout)?;

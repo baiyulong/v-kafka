@@ -40,7 +40,11 @@ pub enum OffsetReset {
 
 /// List all consumer groups visible to this client.
 pub fn list_consumer_groups(config: &ClientConfig) -> Result<Vec<GroupInfo>> {
-    let consumer: BaseConsumer = config.create()?;
+    let mut cfg = config.clone();
+    if cfg.get("group.id").is_none() {
+        cfg.set("group.id", "v-kafka-inspector");
+    }
+    let consumer: BaseConsumer = cfg.create()?;
     let groups = consumer.fetch_group_list(None, Duration::from_secs(10))?;
     let mut result: Vec<GroupInfo> = groups
         .groups()

@@ -298,6 +298,7 @@ impl ClusterForm {
             },
             schema_registry,
             client_id: None,
+            group_id: None,
         }
     }
 }

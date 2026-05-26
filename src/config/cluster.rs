@@ -69,6 +69,10 @@ pub struct ClusterConfig {
     pub schema_registry: Option<SchemaRegistryConfig>,
     /// Custom client ID
     pub client_id: Option<String>,
+    /// Consumer group ID used for message inspection (leave empty to auto-derive).
+    /// Must be authorized by cluster ACLs. Example: "my-team-group"
+    #[serde(default)]
+    pub group_id: Option<String>,
 }
 
 impl ClusterConfig {

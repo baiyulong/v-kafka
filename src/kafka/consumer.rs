@@ -104,7 +104,7 @@ pub fn fetch_messages_blocking(
     limit: usize,
     high_watermark: i64,
 ) -> Result<Vec<KafkaMessage>> {
-    let consumer: BaseConsumer = config.create()?;
+    let consumer: BaseConsumer = config.clone().create()?;
     let offset = match start_offset {
         -1 => Offset::Beginning,
         -2 => Offset::End,
@@ -114,12 +114,14 @@ pub fn fetch_messages_blocking(
     tpl.add_partition_offset(topic, partition, offset)?;
     consumer.assign(&tpl)?;
 
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    let poll_timeout = Duration::from_millis(500);
     let mut messages = Vec::with_capacity(limit);
     loop {
-        if messages.len() >= limit {
+        if messages.len() >= limit || std::time::Instant::now() >= deadline {
             break;
         }
-        match consumer.poll(Duration::from_secs(3)) {
+        match consumer.poll(poll_timeout) {
             Some(Ok(msg)) => {
                 let msg_offset = msg.offset();
                 let owned = msg.detach();
@@ -129,7 +131,8 @@ pub fn fetch_messages_blocking(
                 }
             }
             Some(Err(e)) => return Err(e.into()),
-            None => break, // poll timeout — no more messages
+            // poll timeout: keep retrying until deadline (connection/auth setup may take time)
+            None => {}
         }
     }
     Ok(messages)
@@ -143,11 +146,11 @@ pub fn fetch_messages_from_timestamp(
     timestamp_ms: i64,
     limit: usize,
 ) -> Result<Vec<KafkaMessage>> {
-    let consumer: BaseConsumer = config.create()?;
+    let consumer: BaseConsumer = config.clone().create()?;
     // offsets_for_times repurposes the TPL offset field as a timestamp
     let mut tpl = TopicPartitionList::new();
     tpl.add_partition_offset(topic, partition, Offset::Offset(timestamp_ms))?;
-    let resolved = consumer.offsets_for_times(tpl, Duration::from_secs(5))?;
+    let resolved = consumer.offsets_for_times(tpl, Duration::from_secs(10))?;
     let actual_offset = resolved
         .find_partition(topic, partition)
         .and_then(|p| match p.offset() {

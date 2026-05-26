@@ -21,6 +21,21 @@ impl KafkaClient {
         for (k, v) in cluster.to_rdkafka_config() {
             config.set(k, v);
         }
+        // group.id is required by rdkafka for partition assignment and message fetching.
+        // Use the user-configured group_id, or derive from SASL username.
+        if config.get("group.id").is_none() {
+            let group_id = cluster.group_id.as_deref()
+                .map(|g| g.to_string())
+                .or_else(|| {
+                    cluster.sasl.username.as_deref().map(|u| {
+                        // e.g. "kaf-mct2" → "mct2-vk" (strip common prefix)
+                        let base = u.strip_prefix("kaf-").unwrap_or(u);
+                        format!("{}-vk", base)
+                    })
+                })
+                .unwrap_or_else(|| "v-kafka-inspector".to_string());
+            config.set("group.id", group_id);
+        }
         Ok(Self { config })
     }
 
