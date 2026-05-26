@@ -1,17 +1,15 @@
+use crate::app::App;
+use crate::decoder::auto_decode_value;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::Rect,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::decoder::auto_decode_value;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
-    let msg = app
-        .selected_message_idx
-        .and_then(|i| app.messages.get(i));
+    let msg = app.selected_message_idx.and_then(|i| app.messages.get(i));
 
     let Some(msg) = msg else {
         let para = Paragraph::new(" No message selected")
@@ -55,7 +53,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled("  Headers:", Theme::key())));
         for (k, v) in &msg.headers {
-            let val = String::from_utf8(v.clone()).unwrap_or_else(|_| format!("<binary {}B>", v.len()));
+            let val =
+                String::from_utf8(v.clone()).unwrap_or_else(|_| format!("<binary {}B>", v.len()));
             lines.push(Line::from(vec![
                 Span::styled("    ", Theme::normal()),
                 Span::styled(format!("{} = ", k), Theme::dim()),
@@ -83,7 +82,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         ]));
     }
 
-    let title = format!(" Message #{} ─ {}/P{} ", msg.offset, msg.topic, msg.partition);
+    let title = format!(
+        " Message #{} ─ {}/P{} ",
+        msg.offset, msg.topic, msg.partition
+    );
     let para = Paragraph::new(lines)
         .scroll((app.scroll_offset as u16, 0))
         .block(

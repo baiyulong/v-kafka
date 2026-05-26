@@ -1,5 +1,6 @@
-use anyhow::Result;
-use crate::config::cluster::{AuthMechanism, ClusterConfig, SaslConfig, SchemaRegistryConfig, SslConfig};
+use crate::config::cluster::{
+    AuthMechanism, ClusterConfig, SaslConfig, SchemaRegistryConfig, SslConfig,
+};
 use crate::config::profile::{ClusterProfile, ProfileManager};
 use crate::kafka::admin::AclEntry;
 use crate::kafka::client::KafkaClient;
@@ -7,6 +8,7 @@ use crate::kafka::consumer::KafkaMessage;
 use crate::kafka::consumer_group::{GroupInfo, GroupPartitionOffset};
 use crate::kafka::metadata::CachedMetadata;
 use crate::kafka::schema_registry::{SchemaDetail, SchemaRegistryClient};
+use anyhow::Result;
 
 /// Top-level view/screen of the application
 #[derive(Debug, Clone, PartialEq)]
@@ -49,8 +51,14 @@ pub struct ProducerForm {
 }
 
 impl ProducerForm {
-    pub const FIELDS: &'static [&'static str] =
-        &["Topic", "Partition (empty=auto)", "Key", "Value", "Headers (k=v,k2=v2)", "[ Send ]"];
+    pub const FIELDS: &'static [&'static str] = &[
+        "Topic",
+        "Partition (empty=auto)",
+        "Key",
+        "Value",
+        "Headers (k=v,k2=v2)",
+        "[ Send ]",
+    ];
 
     pub fn current_str_mut(&mut self) -> Option<&mut String> {
         match self.focused_field {
@@ -136,26 +144,35 @@ impl ClusterFormField {
 
     /// Return the ordered list of fields for a given auth mechanism
     pub fn fields_for(auth: &AuthMechanism) -> Vec<ClusterFormField> {
-        let mut fields = vec![
-            Self::Name,
-            Self::BootstrapServers,
-            Self::AuthMechanism,
-        ];
+        let mut fields = vec![Self::Name, Self::BootstrapServers, Self::AuthMechanism];
         match auth {
             AuthMechanism::Plaintext => {}
             AuthMechanism::Ssl => {
-                fields.extend([Self::CaCert, Self::ClientCert, Self::ClientKey,
-                    Self::ClientKeyPassword, Self::VerifyHostname]);
+                fields.extend([
+                    Self::CaCert,
+                    Self::ClientCert,
+                    Self::ClientKey,
+                    Self::ClientKeyPassword,
+                    Self::VerifyHostname,
+                ]);
             }
-            AuthMechanism::SaslPlain | AuthMechanism::SaslScramSha256 | AuthMechanism::SaslScramSha512 => {
+            AuthMechanism::SaslPlain
+            | AuthMechanism::SaslScramSha256
+            | AuthMechanism::SaslScramSha512 => {
                 fields.extend([Self::SaslUsername, Self::SaslPassword]);
-                if matches!(auth, AuthMechanism::SaslScramSha256 | AuthMechanism::SaslScramSha512) {
+                if matches!(
+                    auth,
+                    AuthMechanism::SaslScramSha256 | AuthMechanism::SaslScramSha512
+                ) {
                     fields.extend([Self::CaCert, Self::VerifyHostname]);
                 }
             }
             AuthMechanism::Kerberos => {
-                fields.extend([Self::KerberosPrincipal, Self::KerberosKeytab,
-                    Self::KerberosServiceName]);
+                fields.extend([
+                    Self::KerberosPrincipal,
+                    Self::KerberosKeytab,
+                    Self::KerberosServiceName,
+                ]);
             }
         }
         fields.extend([Self::SchemaRegistryUrl, Self::Submit]);
@@ -220,7 +237,13 @@ impl ClusterForm {
             ClusterFormField::ClientCert => self.client_cert.clone(),
             ClusterFormField::ClientKey => self.client_key.clone(),
             ClusterFormField::ClientKeyPassword => "*".repeat(self.client_key_password.len()),
-            ClusterFormField::VerifyHostname => if self.verify_hostname { "yes".into() } else { "no".into() },
+            ClusterFormField::VerifyHostname => {
+                if self.verify_hostname {
+                    "yes".into()
+                } else {
+                    "no".into()
+                }
+            }
             ClusterFormField::SaslUsername => self.sasl_username.clone(),
             ClusterFormField::SaslPassword => "*".repeat(self.sasl_password.len()),
             ClusterFormField::KerberosPrincipal => self.kerberos_principal.clone(),
@@ -228,7 +251,9 @@ impl ClusterForm {
             ClusterFormField::KerberosServiceName => self.kerberos_service_name.clone(),
             ClusterFormField::SchemaRegistryUrl => self.schema_registry_url.clone(),
             ClusterFormField::SchemaRegistryUser => self.schema_registry_user.clone(),
-            ClusterFormField::SchemaRegistryPassword => "*".repeat(self.schema_registry_password.len()),
+            ClusterFormField::SchemaRegistryPassword => {
+                "*".repeat(self.schema_registry_password.len())
+            }
             ClusterFormField::Submit => String::new(),
         }
     }
@@ -273,8 +298,16 @@ impl ClusterForm {
         } else {
             Some(SchemaRegistryConfig {
                 url: self.schema_registry_url.trim().to_string(),
-                username: if self.schema_registry_user.is_empty() { None } else { Some(self.schema_registry_user.clone()) },
-                password: if self.schema_registry_password.is_empty() { None } else { Some(self.schema_registry_password.clone()) },
+                username: if self.schema_registry_user.is_empty() {
+                    None
+                } else {
+                    Some(self.schema_registry_user.clone())
+                },
+                password: if self.schema_registry_password.is_empty() {
+                    None
+                } else {
+                    Some(self.schema_registry_password.clone())
+                },
             })
         };
 
@@ -283,18 +316,54 @@ impl ClusterForm {
             bootstrap_servers: self.bootstrap_servers.trim().to_string(),
             auth: self.current_auth().clone(),
             ssl: SslConfig {
-                ca_cert_path: if self.ca_cert.is_empty() { None } else { Some(self.ca_cert.clone()) },
-                client_cert_path: if self.client_cert.is_empty() { None } else { Some(self.client_cert.clone()) },
-                client_key_path: if self.client_key.is_empty() { None } else { Some(self.client_key.clone()) },
-                client_key_password: if self.client_key_password.is_empty() { None } else { Some(self.client_key_password.clone()) },
+                ca_cert_path: if self.ca_cert.is_empty() {
+                    None
+                } else {
+                    Some(self.ca_cert.clone())
+                },
+                client_cert_path: if self.client_cert.is_empty() {
+                    None
+                } else {
+                    Some(self.client_cert.clone())
+                },
+                client_key_path: if self.client_key.is_empty() {
+                    None
+                } else {
+                    Some(self.client_key.clone())
+                },
+                client_key_password: if self.client_key_password.is_empty() {
+                    None
+                } else {
+                    Some(self.client_key_password.clone())
+                },
                 verify_hostname: self.verify_hostname,
             },
             sasl: SaslConfig {
-                username: if self.sasl_username.is_empty() { None } else { Some(self.sasl_username.clone()) },
-                password: if self.sasl_password.is_empty() { None } else { Some(self.sasl_password.clone()) },
-                kerberos_principal: if self.kerberos_principal.is_empty() { None } else { Some(self.kerberos_principal.clone()) },
-                kerberos_keytab: if self.kerberos_keytab.is_empty() { None } else { Some(self.kerberos_keytab.clone()) },
-                kerberos_service_name: if self.kerberos_service_name.is_empty() { None } else { Some(self.kerberos_service_name.clone()) },
+                username: if self.sasl_username.is_empty() {
+                    None
+                } else {
+                    Some(self.sasl_username.clone())
+                },
+                password: if self.sasl_password.is_empty() {
+                    None
+                } else {
+                    Some(self.sasl_password.clone())
+                },
+                kerberos_principal: if self.kerberos_principal.is_empty() {
+                    None
+                } else {
+                    Some(self.kerberos_principal.clone())
+                },
+                kerberos_keytab: if self.kerberos_keytab.is_empty() {
+                    None
+                } else {
+                    Some(self.kerberos_keytab.clone())
+                },
+                kerberos_service_name: if self.kerberos_service_name.is_empty() {
+                    None
+                } else {
+                    Some(self.kerberos_service_name.clone())
+                },
             },
             schema_registry,
             client_id: None,
@@ -453,7 +522,10 @@ impl App {
             let mut form = ClusterForm::default();
             form.name = c.name.clone();
             form.bootstrap_servers = c.bootstrap_servers.clone();
-            form.auth_index = AUTH_MECHANISMS.iter().position(|a| a == &c.auth).unwrap_or(0);
+            form.auth_index = AUTH_MECHANISMS
+                .iter()
+                .position(|a| a == &c.auth)
+                .unwrap_or(0);
             form.ca_cert = c.ssl.ca_cert_path.clone().unwrap_or_default();
             form.client_cert = c.ssl.client_cert_path.clone().unwrap_or_default();
             form.client_key = c.ssl.client_key_path.clone().unwrap_or_default();
@@ -478,7 +550,9 @@ impl App {
 
     /// Return topics filtered by current filter string
     pub fn filtered_topics(&self) -> Vec<&crate::kafka::metadata::TopicMeta> {
-        self.metadata.topics.iter()
+        self.metadata
+            .topics
+            .iter()
             .filter(|t| {
                 if self.filter.is_empty() {
                     true

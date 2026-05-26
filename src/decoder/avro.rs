@@ -68,11 +68,17 @@ impl AvroDecoder {
             }
         }
         let registry = self.registry.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("No Schema Registry configured — cannot resolve schema {}", schema_id)
+            anyhow::anyhow!(
+                "No Schema Registry configured — cannot resolve schema {}",
+                schema_id
+            )
         })?;
         let (schema_json, _schema_type) = registry.get_schema_by_id(schema_id)?;
         let schema = Schema::parse_str(&schema_json)?;
-        self.schema_cache.lock().unwrap().insert(schema_id, schema.clone());
+        self.schema_cache
+            .lock()
+            .unwrap()
+            .insert(schema_id, schema.clone());
         Ok(schema)
     }
 }
@@ -82,7 +88,16 @@ fn hex_dump(bytes: &[u8]) -> String {
         .chunks(16)
         .map(|row| {
             let hex: String = row.iter().map(|b| format!("{:02x} ", b)).collect();
-            let printable: String = row.iter().map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' }).collect();
+            let printable: String = row
+                .iter()
+                .map(|&b| {
+                    if b.is_ascii_graphic() || b == b' ' {
+                        b as char
+                    } else {
+                        '.'
+                    }
+                })
+                .collect();
             format!("{:<48} {}", hex, printable)
         })
         .collect::<Vec<_>>()
@@ -103,11 +118,18 @@ fn avro_to_json_value(value: &apache_avro::types::Value) -> serde_json::Value {
         Av::Boolean(b) => Jv::Bool(*b),
         Av::Int(i) => Jv::Number((*i).into()),
         Av::Long(l) => Jv::Number((*l).into()),
-        Av::Float(f) => serde_json::Number::from_f64(*f as f64).map(Jv::Number).unwrap_or(Jv::Null),
-        Av::Double(d) => serde_json::Number::from_f64(*d).map(Jv::Number).unwrap_or(Jv::Null),
-        Av::Bytes(b) | Av::Fixed(_, b) => {
-            Jv::String(b.iter().map(|x| format!("{:02x}", x)).collect::<Vec<_>>().join(""))
-        }
+        Av::Float(f) => serde_json::Number::from_f64(*f as f64)
+            .map(Jv::Number)
+            .unwrap_or(Jv::Null),
+        Av::Double(d) => serde_json::Number::from_f64(*d)
+            .map(Jv::Number)
+            .unwrap_or(Jv::Null),
+        Av::Bytes(b) | Av::Fixed(_, b) => Jv::String(
+            b.iter()
+                .map(|x| format!("{:02x}", x))
+                .collect::<Vec<_>>()
+                .join(""),
+        ),
         Av::String(s) => Jv::String(s.clone()),
         Av::Enum(_, s) => Jv::String(s.clone()),
         Av::Union(_, inner) => avro_to_json_value(inner),
@@ -151,4 +173,3 @@ impl Decoder for AvroDecoder {
         DecoderFormat::Avro
     }
 }
-

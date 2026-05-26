@@ -1,12 +1,12 @@
+use crate::app::App;
+use crate::config::cluster::AuthMechanism;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::config::cluster::AuthMechanism;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -26,13 +26,26 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
         .enumerate()
         .map(|(_i, cluster)| {
             let auth_badge = auth_badge(&cluster.auth);
-            let is_active = app.active_cluster.as_ref()
+            let is_active = app
+                .active_cluster
+                .as_ref()
                 .map(|a| a.cluster.name == cluster.name)
                 .unwrap_or(false);
-            let name_style = if is_active { Theme::success() } else { Theme::normal() };
+            let name_style = if is_active {
+                Theme::success()
+            } else {
+                Theme::normal()
+            };
             let prefix = if is_active { "● " } else { "  " };
             let line = Line::from(vec![
-                Span::styled(prefix, if is_active { Theme::success() } else { Theme::dim() }),
+                Span::styled(
+                    prefix,
+                    if is_active {
+                        Theme::success()
+                    } else {
+                        Theme::dim()
+                    },
+                ),
                 Span::styled(&cluster.name, name_style),
                 Span::raw("  "),
                 Span::styled(auth_badge, Theme::dim()),
@@ -102,15 +115,15 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
                 ])
             },
             Line::from(""),
-            Line::from(Span::styled(
-                "  Press Enter to connect",
-                Theme::dim(),
-            )),
+            Line::from(Span::styled("  Press Enter to connect", Theme::dim())),
         ]
     } else {
         vec![
             Line::from(""),
-            Line::from(Span::styled("  Select a cluster to view details", Theme::dim())),
+            Line::from(Span::styled(
+                "  Select a cluster to view details",
+                Theme::dim(),
+            )),
         ]
     };
 

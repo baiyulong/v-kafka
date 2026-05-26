@@ -1,10 +1,10 @@
+use crate::ui::{layout::centered_rect, theme::Theme};
 use ratatui::{
     layout::Rect,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph},
     Frame,
 };
-use crate::ui::{layout::centered_rect, theme::Theme};
 
 pub fn render(f: &mut Frame, area: Rect) {
     let popup_area = centered_rect(60, 24, area);

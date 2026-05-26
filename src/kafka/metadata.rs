@@ -1,10 +1,10 @@
 //! Cached Kafka cluster metadata — populated asynchronously, read by the UI.
 
+use anyhow::Result;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 use rdkafka::metadata::Metadata;
 use rdkafka::ClientConfig;
 use std::time::Duration;
-use anyhow::Result;
 
 #[derive(Debug, Clone, Default)]
 pub struct CachedMetadata {
@@ -33,7 +33,10 @@ impl TopicMeta {
     }
 
     pub fn replication_factor(&self) -> usize {
-        self.partitions.first().map(|p| p.replicas.len()).unwrap_or(0)
+        self.partitions
+            .first()
+            .map(|p| p.replicas.len())
+            .unwrap_or(0)
     }
 }
 
@@ -67,29 +70,45 @@ pub fn fetch_cluster_metadata(config: &ClientConfig, timeout: Duration) -> Resul
     let consumer: BaseConsumer = cfg.create()?;
     let raw: Metadata = consumer.fetch_metadata(None, timeout)?;
 
-    let brokers: Vec<BrokerMeta> = raw.brokers().iter().map(|b| BrokerMeta {
-        id: b.id(),
-        host: b.host().to_string(),
-        port: b.port(),
-    }).collect();
+    let brokers: Vec<BrokerMeta> = raw
+        .brokers()
+        .iter()
+        .map(|b| BrokerMeta {
+            id: b.id(),
+            host: b.host().to_string(),
+            port: b.port(),
+        })
+        .collect();
 
-    let topics: Vec<TopicMeta> = raw.topics().iter().map(|t| {
-        let name = t.name().to_string();
-        let is_internal = name.starts_with("__");
-        let partitions: Vec<PartitionMeta> = t.partitions().iter().map(|p| {
-            let error = p.error().map(|e| format!("{:?}", e));
-            PartitionMeta {
-                id: p.id(),
-                leader: p.leader(),
-                replicas: p.replicas().to_vec(),
-                isr: p.isr().to_vec(),
-                error,
-                low_watermark: None,
-                high_watermark: None,
+    let topics: Vec<TopicMeta> = raw
+        .topics()
+        .iter()
+        .map(|t| {
+            let name = t.name().to_string();
+            let is_internal = name.starts_with("__");
+            let partitions: Vec<PartitionMeta> = t
+                .partitions()
+                .iter()
+                .map(|p| {
+                    let error = p.error().map(|e| format!("{:?}", e));
+                    PartitionMeta {
+                        id: p.id(),
+                        leader: p.leader(),
+                        replicas: p.replicas().to_vec(),
+                        isr: p.isr().to_vec(),
+                        error,
+                        low_watermark: None,
+                        high_watermark: None,
+                    }
+                })
+                .collect();
+            TopicMeta {
+                name,
+                partitions,
+                is_internal,
             }
-        }).collect();
-        TopicMeta { name, partitions, is_internal }
-    }).collect();
+        })
+        .collect();
 
     Ok(CachedMetadata {
         brokers,
@@ -112,7 +131,10 @@ pub fn fetch_watermarks(
 
     // First fetch metadata to discover partition count
     let meta = consumer.fetch_metadata(Some(topic), timeout)?;
-    let topic_meta = meta.topics().iter().find(|t| t.name() == topic)
+    let topic_meta = meta
+        .topics()
+        .iter()
+        .find(|t| t.name() == topic)
         .ok_or_else(|| anyhow::anyhow!("Topic '{}' not found", topic))?;
 
     let mut results = Vec::new();

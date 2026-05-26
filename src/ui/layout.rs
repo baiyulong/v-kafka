@@ -1,15 +1,13 @@
-use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 /// Build the 3-row main layout: title bar / content / status bar
 pub fn build_layout(area: Rect) -> Vec<Rect> {
     Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // title bar
-            Constraint::Min(0),     // content
-            Constraint::Length(1),  // status bar
+            Constraint::Length(1), // title bar
+            Constraint::Min(0),    // content
+            Constraint::Length(1), // status bar
         ])
         .split(area)
         .to_vec()

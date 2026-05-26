@@ -22,9 +22,10 @@ pub struct KafkaMessage {
 impl KafkaMessage {
     pub fn from_owned(msg: &OwnedMessage) -> Self {
         use rdkafka::message::Headers;
-        let timestamp = msg.timestamp().to_millis().and_then(|ms| {
-            DateTime::from_timestamp_millis(ms)
-        });
+        let timestamp = msg
+            .timestamp()
+            .to_millis()
+            .and_then(|ms| DateTime::from_timestamp_millis(ms));
         let headers = msg
             .headers()
             .map(|h| {
@@ -54,8 +55,9 @@ impl KafkaMessage {
     pub fn key_display(&self) -> String {
         match &self.key {
             None => "(null)".to_string(),
-            Some(k) => String::from_utf8(k.clone())
-                .unwrap_or_else(|_| format!("<binary {}B>", k.len())),
+            Some(k) => {
+                String::from_utf8(k.clone()).unwrap_or_else(|_| format!("<binary {}B>", k.len()))
+            }
         }
     }
 

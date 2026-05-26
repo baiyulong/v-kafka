@@ -1,3 +1,5 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
@@ -5,8 +7,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Cell, List, ListItem, ListState, Row, Table},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let topic = app.selected_topic.as_deref().unwrap_or("?");
@@ -39,39 +39,66 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     // Header + rows layout
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ])
         .split(block.inner(area));
 
     f.render_widget(block, area);
 
     // Column header
     let header = Row::new(vec![
-        Cell::from("OFFSET").style(Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::Cyan)),
-        Cell::from("TIMESTAMP").style(Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::Cyan)),
-        Cell::from("KEY").style(Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::Cyan)),
-        Cell::from("VALUE").style(Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::Cyan)),
+        Cell::from("OFFSET").style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(ratatui::style::Color::Cyan),
+        ),
+        Cell::from("TIMESTAMP").style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(ratatui::style::Color::Cyan),
+        ),
+        Cell::from("KEY").style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(ratatui::style::Color::Cyan),
+        ),
+        Cell::from("VALUE").style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(ratatui::style::Color::Cyan),
+        ),
     ]);
 
-    let _rows: Vec<Row> = app.messages.iter().enumerate().map(|(i, msg)| {
-        let ts = msg.timestamp
-            .map(|t| t.format("%m-%d %H:%M:%S").to_string())
-            .unwrap_or_else(|| "-".to_string());
-        let key = msg.key_display();
-        let val = msg.value_preview(60);
-        let style = if app.selected_message_idx == Some(i) {
-            Theme::selected()
-        } else if i % 2 == 0 {
-            Theme::normal()
-        } else {
-            Style::default().fg(ratatui::style::Color::Gray)
-        };
-        Row::new(vec![
-            Cell::from(format!("{:>12}", msg.offset)),
-            Cell::from(ts),
-            Cell::from(key),
-            Cell::from(val),
-        ]).style(style)
-    }).collect();
+    let _rows: Vec<Row> = app
+        .messages
+        .iter()
+        .enumerate()
+        .map(|(i, msg)| {
+            let ts = msg
+                .timestamp
+                .map(|t| t.format("%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "-".to_string());
+            let key = msg.key_display();
+            let val = msg.value_preview(60);
+            let style = if app.selected_message_idx == Some(i) {
+                Theme::selected()
+            } else if i % 2 == 0 {
+                Theme::normal()
+            } else {
+                Style::default().fg(ratatui::style::Color::Gray)
+            };
+            Row::new(vec![
+                Cell::from(format!("{:>12}", msg.offset)),
+                Cell::from(ts),
+                Cell::from(key),
+                Cell::from(val),
+            ])
+            .style(style)
+        })
+        .collect();
 
     let widths = [
         Constraint::Length(14),
@@ -80,27 +107,35 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         Constraint::Min(20),
     ];
 
-    let header_row = Table::new([header], widths)
-        .block(Block::default());
+    let header_row = Table::new([header], widths).block(Block::default());
     f.render_widget(header_row, chunks[0]);
 
     // Message list (scrollable)
-    let items: Vec<ListItem> = app.messages.iter().map(|msg| {
-        let ts = msg.timestamp
-            .map(|t| t.format("%m-%d %H:%M:%S").to_string())
-            .unwrap_or_else(|| "    -        ".to_string());
-        let key = {
-            let k = msg.key_display();
-            if k.len() > 20 { format!("{}…", &k[..19]) } else { format!("{:<20}", k) }
-        };
-        let val = msg.value_preview(50);
-        ListItem::new(Line::from(vec![
-            Span::styled(format!("{:>12}  ", msg.offset), Theme::key()),
-            Span::styled(format!("{}  ", ts), Theme::dim()),
-            Span::styled(format!("{}  ", key), Theme::normal()),
-            Span::styled(val, Theme::dim()),
-        ]))
-    }).collect();
+    let items: Vec<ListItem> = app
+        .messages
+        .iter()
+        .map(|msg| {
+            let ts = msg
+                .timestamp
+                .map(|t| t.format("%m-%d %H:%M:%S").to_string())
+                .unwrap_or_else(|| "    -        ".to_string());
+            let key = {
+                let k = msg.key_display();
+                if k.len() > 20 {
+                    format!("{}…", &k[..19])
+                } else {
+                    format!("{:<20}", k)
+                }
+            };
+            let val = msg.value_preview(50);
+            ListItem::new(Line::from(vec![
+                Span::styled(format!("{:>12}  ", msg.offset), Theme::key()),
+                Span::styled(format!("{}  ", ts), Theme::dim()),
+                Span::styled(format!("{}  ", key), Theme::normal()),
+                Span::styled(val, Theme::dim()),
+            ]))
+        })
+        .collect();
 
     let list = List::new(items)
         .highlight_style(Theme::selected())
@@ -115,10 +150,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         "  Loading…".to_string()
     } else {
         let first = app.messages.first().map(|m| m.offset).unwrap_or(0);
-        let last  = app.messages.last().map(|m| m.offset).unwrap_or(0);
+        let last = app.messages.last().map(|m| m.offset).unwrap_or(0);
         format!(
             "  {} messages  offsets {}–{}  [Enter] detail  [/] filter  [j/k] navigate",
-            app.messages.len(), first, last
+            app.messages.len(),
+            first,
+            last
         )
     };
     let footer = ratatui::widgets::Paragraph::new(info).style(Theme::dim());
@@ -127,10 +164,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     // Overlay: input prompt
     if app.message_input != crate::app::MessageInput::None {
         let prompt = match app.message_input {
-            crate::app::MessageInput::Offset    => format!("Jump to offset: {}_", app.search_input),
+            crate::app::MessageInput::Offset => format!("Jump to offset: {}_", app.search_input),
             crate::app::MessageInput::Timestamp => format!("Timestamp (ms): {}_", app.search_input),
-            crate::app::MessageInput::Filter    => format!("Filter: {}_", app.search_input),
-            crate::app::MessageInput::None      => String::new(),
+            crate::app::MessageInput::Filter => format!("Filter: {}_", app.search_input),
+            crate::app::MessageInput::None => String::new(),
         };
         let popup_area = Rect {
             x: area.x + 2,
@@ -140,7 +177,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         };
         let popup = ratatui::widgets::Paragraph::new(prompt.clone())
             .style(Theme::normal())
-            .block(Block::default().borders(Borders::ALL).border_style(Theme::block_active()));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Theme::block_active()),
+            );
         f.render_widget(ratatui::widgets::Clear, popup_area);
         f.render_widget(popup, popup_area);
     }

@@ -43,7 +43,10 @@ pub fn auto_decode_value(
         // No registry — show schema ID hint
         let schema_id = i32::from_be_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]);
         return (
-            format!("<Confluent Avro schema_id={} — configure Schema Registry to decode>", schema_id),
+            format!(
+                "<Confluent Avro schema_id={} — configure Schema Registry to decode>",
+                schema_id
+            ),
             DecoderFormat::Avro,
         );
     }
@@ -58,6 +61,13 @@ pub fn auto_decode_value(
         return (s.to_string(), DecoderFormat::Text);
     }
     // Binary
-    let hex: String = bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
-    (format!("<binary {} bytes>\n{}", bytes.len(), hex), DecoderFormat::Text)
+    let hex: String = bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ");
+    (
+        format!("<binary {} bytes>\n{}", bytes.len(), hex),
+        DecoderFormat::Text,
+    )
 }

@@ -97,9 +97,7 @@ pub fn fetch_group_offsets(
             high_watermark: high,
         });
     }
-    results.sort_by(|a, b| {
-        a.topic.cmp(&b.topic).then(a.partition.cmp(&b.partition))
-    });
+    results.sort_by(|a, b| a.topic.cmp(&b.topic).then(a.partition.cmp(&b.partition)));
     Ok(results)
 }
 
@@ -120,13 +118,13 @@ pub fn reset_group_offsets(
     for (topic, partition) in partitions {
         let actual_offset = match reset_to {
             OffsetReset::Earliest => {
-                let (low, _) = consumer
-                    .fetch_watermarks(topic, *partition, Duration::from_secs(5))?;
+                let (low, _) =
+                    consumer.fetch_watermarks(topic, *partition, Duration::from_secs(5))?;
                 low
             }
             OffsetReset::Latest => {
-                let (_, high) = consumer
-                    .fetch_watermarks(topic, *partition, Duration::from_secs(5))?;
+                let (_, high) =
+                    consumer.fetch_watermarks(topic, *partition, Duration::from_secs(5))?;
                 high
             }
             OffsetReset::Specific(o) => o,

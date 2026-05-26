@@ -1,10 +1,10 @@
+use crate::app::{App, ProducerForm};
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
 };
-use crate::app::{App, ProducerForm};
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -23,12 +23,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(3), // send button
             Constraint::Min(1),    // spacer + result
         ])
-        .split(Block::default()
-            .title(" Produce Message ─ [Tab] next field  [Enter] send  [Esc] back ")
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Theme::block_active())
-            .inner(chunks[0]));
+        .split(
+            Block::default()
+                .title(" Produce Message ─ [Tab] next field  [Enter] send  [Esc] back ")
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Theme::block_active())
+                .inner(chunks[0]),
+        );
 
     let block = Block::default()
         .title(" Produce Message ─ [Tab] next field  [Enter] send  [Esc] back ")
@@ -41,9 +43,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     // Render each field
     for (idx, label) in ProducerForm::FIELDS.iter().enumerate() {
-        if idx >= inner_chunks.len() { break; }
+        if idx >= inner_chunks.len() {
+            break;
+        }
         let is_focused = form.focused_field == idx;
-        let border_style = if is_focused { Theme::block_active() } else { Theme::block() };
+        let border_style = if is_focused {
+            Theme::block_active()
+        } else {
+            Theme::block()
+        };
 
         if idx == 5 {
             // Send button
@@ -53,8 +61,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                 "     [ Send Message ]"
             };
             let btn = Paragraph::new(send_label)
-                .style(if is_focused { Theme::selected() } else { Theme::dim() })
-                .block(Block::default().borders(Borders::ALL).border_style(border_style));
+                .style(if is_focused {
+                    Theme::selected()
+                } else {
+                    Theme::dim()
+                })
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(border_style),
+                );
             f.render_widget(btn, inner_chunks[idx]);
         } else {
             let value = form.field_value(idx);
@@ -64,7 +80,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                 value
             };
             let field = Paragraph::new(display)
-                .style(if is_focused { Theme::normal() } else { Theme::dim() })
+                .style(if is_focused {
+                    Theme::normal()
+                } else {
+                    Theme::dim()
+                })
                 .block(
                     Block::default()
                         .title(format!(" {} ", label))
@@ -77,7 +97,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
     // Result line
     if let Some(result) = &form.last_result {
-        let style = if result.starts_with("✓") { Theme::success() } else { Theme::error() };
+        let style = if result.starts_with("✓") {
+            Theme::success()
+        } else {
+            Theme::error()
+        };
         if let Some(last_chunk) = inner_chunks.last() {
             let para = Paragraph::new(format!("  {}", result)).style(style);
             f.render_widget(para, *last_chunk);

@@ -1,11 +1,11 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -20,13 +20,16 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 fn render_broker_list(f: &mut Frame, area: Rect, app: &App) {
     let brokers = &app.metadata.brokers;
 
-    let items: Vec<ListItem> = brokers.iter().map(|b| {
-        let line = Line::from(vec![
-            Span::styled(format!("  {:>3}  ", b.id), Theme::key()),
-            Span::raw(format!("{}:{}", b.host, b.port)),
-        ]);
-        ListItem::new(line)
-    }).collect();
+    let items: Vec<ListItem> = brokers
+        .iter()
+        .map(|b| {
+            let line = Line::from(vec![
+                Span::styled(format!("  {:>3}  ", b.id), Theme::key()),
+                Span::raw(format!("{}:{}", b.host, b.port)),
+            ]);
+            ListItem::new(line)
+        })
+        .collect();
 
     let list = List::new(if items.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
@@ -54,10 +57,14 @@ fn render_broker_list(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_cluster_summary(f: &mut Frame, area: Rect, app: &App) {
-    let cluster_name = app.active_cluster.as_ref()
+    let cluster_name = app
+        .active_cluster
+        .as_ref()
         .map(|c| c.cluster.name.as_str())
         .unwrap_or("—");
-    let bootstrap = app.active_cluster.as_ref()
+    let bootstrap = app
+        .active_cluster
+        .as_ref()
         .map(|c| c.cluster.bootstrap_servers.as_str())
         .unwrap_or("—");
 
@@ -66,9 +73,7 @@ fn render_cluster_summary(f: &mut Frame, area: Rect, app: &App) {
     let internal = topics.iter().filter(|t| t.is_internal).count();
     let user_topics = topics.len() - internal;
 
-    let selected_broker = brokers.get(
-        app.list_cursor.min(brokers.len().saturating_sub(1))
-    );
+    let selected_broker = brokers.get(app.list_cursor.min(brokers.len().saturating_sub(1)));
 
     let mut lines = vec![
         Line::from(""),

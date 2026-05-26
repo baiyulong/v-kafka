@@ -49,7 +49,8 @@ impl SchemaRegistryClient {
         if let (Some(u), Some(p)) = (&self.username, &self.password) {
             req = req.set("Authorization", &basic_auth(u, p));
         }
-        req.call().map_err(|e| anyhow!("Schema Registry {}: {}", path, e))
+        req.call()
+            .map_err(|e| anyhow!("Schema Registry {}: {}", path, e))
     }
 
     /// GET /subjects → all subject names
@@ -101,8 +102,16 @@ fn base64_encode(input: &[u8]) -> String {
         let b2 = chunk.get(2).copied().unwrap_or(0) as usize;
         out.push(TABLE[(b0 >> 2) & 0x3f] as char);
         out.push(TABLE[((b0 << 4) | (b1 >> 4)) & 0x3f] as char);
-        out.push(if chunk.len() > 1 { TABLE[((b1 << 2) | (b2 >> 6)) & 0x3f] as char } else { '=' });
-        out.push(if chunk.len() > 2 { TABLE[b2 & 0x3f] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            TABLE[((b1 << 2) | (b2 >> 6)) & 0x3f] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            TABLE[b2 & 0x3f] as char
+        } else {
+            '='
+        });
     }
     out
 }

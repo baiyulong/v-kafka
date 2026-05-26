@@ -1,3 +1,5 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Modifier,
@@ -5,8 +7,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -18,22 +18,29 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let groups = &app.consumer_groups;
     let items: Vec<ListItem> = if groups.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
-            if app.consumer_groups_loading { "  Loading…" } else { "  No groups found" },
+            if app.consumer_groups_loading {
+                "  Loading…"
+            } else {
+                "  No groups found"
+            },
             Theme::dim(),
         )))]
     } else {
-        groups.iter().map(|g| {
-            let state_style = match g.state.as_str() {
-                "Stable" => Theme::success(),
-                "Empty"  => Theme::dim(),
-                _        => Theme::warning(),
-            };
-            ListItem::new(Line::from(vec![
-                Span::styled(format!("  {:<35}", g.group_id), Theme::normal()),
-                Span::styled(format!("{:<10}", g.state), state_style),
-                Span::styled(format!("{}m", g.members), Theme::dim()),
-            ]))
-        }).collect()
+        groups
+            .iter()
+            .map(|g| {
+                let state_style = match g.state.as_str() {
+                    "Stable" => Theme::success(),
+                    "Empty" => Theme::dim(),
+                    _ => Theme::warning(),
+                };
+                ListItem::new(Line::from(vec![
+                    Span::styled(format!("  {:<35}", g.group_id), Theme::normal()),
+                    Span::styled(format!("{:<10}", g.state), state_style),
+                    Span::styled(format!("{}m", g.members), Theme::dim()),
+                ]))
+            })
+            .collect()
     };
 
     let list = List::new(items)
@@ -48,7 +55,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .highlight_symbol("▶ ");
 
     let mut state = ListState::default();
-    state.select(if groups.is_empty() { None } else { Some(app.list_cursor.min(groups.len().saturating_sub(1))) });
+    state.select(if groups.is_empty() {
+        None
+    } else {
+        Some(app.list_cursor.min(groups.len().saturating_sub(1)))
+    });
     f.render_stateful_widget(list, chunks[0], &mut state);
 
     // ── Right: selected group detail ──────────────────────────────────────────
@@ -66,26 +77,35 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             Span::styled(g.members.to_string(), Theme::normal()),
         ]));
         lines.push(Line::from(""));
-        lines.push(Line::from(vec![
-            Span::styled(
-                format!("  {:<35} {:>12}  {:>12}  {:>8}", "TOPIC/PARTITION", "COMMITTED", "HIGH", "LAG"),
-                Theme::dim(),
+        lines.push(Line::from(vec![Span::styled(
+            format!(
+                "  {:<35} {:>12}  {:>12}  {:>8}",
+                "TOPIC/PARTITION", "COMMITTED", "HIGH", "LAG"
             ),
-        ]));
-        lines.push(Line::from(Span::styled("  ".to_string() + &"─".repeat(74), Theme::dim())));
-        lines.push(Line::from(Span::styled("  Press [Enter] to load offsets", Theme::dim())));
+            Theme::dim(),
+        )]));
+        lines.push(Line::from(Span::styled(
+            "  ".to_string() + &"─".repeat(74),
+            Theme::dim(),
+        )));
+        lines.push(Line::from(Span::styled(
+            "  Press [Enter] to load offsets",
+            Theme::dim(),
+        )));
     } else {
-        lines.push(Line::from(Span::styled("  Select a group and press [Enter]", Theme::dim())));
+        lines.push(Line::from(Span::styled(
+            "  Select a group and press [Enter]",
+            Theme::dim(),
+        )));
     }
 
-    let detail = Paragraph::new(lines)
-        .block(
-            Block::default()
-                .title(title.as_str())
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Theme::block()),
-        );
+    let detail = Paragraph::new(lines).block(
+        Block::default()
+            .title(title.as_str())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Theme::block()),
+    );
     f.render_widget(detail, chunks[1]);
 }
 
@@ -93,21 +113,31 @@ pub fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     let group_id = app.selected_group.as_deref().unwrap_or("?");
     let offsets = &app.consumer_group_offsets;
 
-    let header = Line::from(vec![
-        Span::styled(
-            format!("  {:<40} {:>12}  {:>12}  {:>8}", "TOPIC/PARTITION", "COMMITTED", "HIGH", "LAG"),
-            ratatui::style::Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::Cyan),
+    let header = Line::from(vec![Span::styled(
+        format!(
+            "  {:<40} {:>12}  {:>12}  {:>8}",
+            "TOPIC/PARTITION", "COMMITTED", "HIGH", "LAG"
         ),
-    ]);
+        ratatui::style::Style::default()
+            .add_modifier(Modifier::BOLD)
+            .fg(ratatui::style::Color::Cyan),
+    )]);
 
     let mut lines: Vec<Line> = vec![
         header,
-        Line::from(Span::styled("  ".to_string() + &"─".repeat(80), Theme::dim())),
+        Line::from(Span::styled(
+            "  ".to_string() + &"─".repeat(80),
+            Theme::dim(),
+        )),
     ];
 
     if offsets.is_empty() {
         lines.push(Line::from(Span::styled(
-            if app.group_offsets_loading { "  Loading…" } else { "  No committed offsets" },
+            if app.group_offsets_loading {
+                "  Loading…"
+            } else {
+                "  No committed offsets"
+            },
             Theme::dim(),
         )));
     } else {
@@ -119,7 +149,13 @@ pub fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             } else {
                 o.committed_offset.to_string()
             };
-            let lag_style = if o.lag() == 0 { Theme::success() } else if o.lag() > 1000 { Theme::error() } else { Theme::warning() };
+            let lag_style = if o.lag() == 0 {
+                Theme::success()
+            } else if o.lag() > 1000 {
+                Theme::error()
+            } else {
+                Theme::warning()
+            };
             lines.push(Line::from(vec![
                 Span::styled(format!("  {:<40}", tp), Theme::normal()),
                 Span::styled(format!("{:>12}  ", committed), Theme::dim()),
@@ -132,7 +168,11 @@ pub fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("  Total lag: ", Theme::key()),
             Span::styled(
                 total_lag.to_string(),
-                if total_lag == 0 { Theme::success() } else { Theme::warning() },
+                if total_lag == 0 {
+                    Theme::success()
+                } else {
+                    Theme::warning()
+                },
             ),
         ]));
     }

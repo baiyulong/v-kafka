@@ -14,9 +14,8 @@ pub async fn create_topic(
     let opts = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
     let results = admin.create_topics([&topic], &opts).await?;
     for result in results {
-        result.map_err(|(name, err)| {
-            anyhow::anyhow!("Failed to create topic {}: {:?}", name, err)
-        })?;
+        result
+            .map_err(|(name, err)| anyhow::anyhow!("Failed to create topic {}: {:?}", name, err))?;
     }
     Ok(())
 }
@@ -29,9 +28,8 @@ pub async fn delete_topics(
     let opts = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
     let results = admin.delete_topics(names, &opts).await?;
     for result in results {
-        result.map_err(|(name, err)| {
-            anyhow::anyhow!("Failed to delete topic {}: {:?}", name, err)
-        })?;
+        result
+            .map_err(|(name, err)| anyhow::anyhow!("Failed to delete topic {}: {:?}", name, err))?;
     }
     Ok(())
 }
@@ -50,9 +48,7 @@ pub struct AclEntry {
 
 /// Fetch all ACL entries.
 /// Note: rdkafka 0.36 does not expose ACL admin API bindings.
-pub async fn describe_acls(
-    _admin: &AdminClient<DefaultClientContext>,
-) -> Result<Vec<AclEntry>> {
+pub async fn describe_acls(_admin: &AdminClient<DefaultClientContext>) -> Result<Vec<AclEntry>> {
     Ok(vec![])
 }
 

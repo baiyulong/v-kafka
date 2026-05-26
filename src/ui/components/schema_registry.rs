@@ -1,12 +1,12 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
-    widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph, Wrap},
     text::{Line, Span},
+    widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -27,8 +27,11 @@ fn render_subjects_panel(f: &mut Frame, area: Rect, app: &App) {
         .border_style(Theme::block_active());
 
     if app.schema_subjects_loading {
-        let p = Paragraph::new(Line::from(Span::styled("  Loading subjects…", Theme::dim())))
-            .block(block);
+        let p = Paragraph::new(Line::from(Span::styled(
+            "  Loading subjects…",
+            Theme::dim(),
+        )))
+        .block(block);
         f.render_widget(p, area);
         return;
     }
@@ -46,12 +49,16 @@ fn render_subjects_panel(f: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    let items: Vec<ListItem> = app.schema_subjects.iter().map(|s| {
-        ListItem::new(Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::raw(s.clone()),
-        ]))
-    }).collect();
+    let items: Vec<ListItem> = app
+        .schema_subjects
+        .iter()
+        .map(|s| {
+            ListItem::new(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::raw(s.clone()),
+            ]))
+        })
+        .collect();
 
     let mut state = ListState::default();
     state.select(Some(app.schema_subjects_cursor));
@@ -64,7 +71,8 @@ fn render_subjects_panel(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_detail_panel(f: &mut Frame, area: Rect, app: &App) {
-    let subject_name = app.schema_subjects
+    let subject_name = app
+        .schema_subjects
         .get(app.schema_subjects_cursor)
         .cloned()
         .unwrap_or_default();
@@ -90,7 +98,10 @@ fn render_detail_panel(f: &mut Frame, area: Rect, app: &App) {
         None => {
             let lines = vec![
                 Line::from(""),
-                Line::from(Span::styled("  Select a subject to view its schema.", Theme::dim())),
+                Line::from(Span::styled(
+                    "  Select a subject to view its schema.",
+                    Theme::dim(),
+                )),
                 Line::from(""),
                 Line::from(Span::styled("  Keys:", Theme::key_hint())),
                 Line::from(Span::styled("    Enter  View latest schema", Theme::dim())),
@@ -142,4 +153,3 @@ fn render_detail_panel(f: &mut Frame, area: Rect, app: &App) {
 pub fn render_detail(f: &mut Frame, area: Rect, app: &App) {
     render(f, area, app);
 }
-

@@ -24,7 +24,9 @@ impl KafkaClient {
         // group.id is required by rdkafka for partition assignment and message fetching.
         // Use the user-configured group_id, or derive from SASL username.
         if config.get("group.id").is_none() {
-            let group_id = cluster.group_id.as_deref()
+            let group_id = cluster
+                .group_id
+                .as_deref()
                 .map(|g| g.to_string())
                 .or_else(|| {
                     cluster.sasl.username.as_deref().map(|u| {

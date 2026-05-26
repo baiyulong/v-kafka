@@ -1,3 +1,5 @@
+use crate::app::{App, ClusterFormField, InputMode};
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::Modifier,
@@ -5,8 +7,6 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::{App, ClusterFormField, InputMode};
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -29,7 +29,11 @@ fn render_field_list(f: &mut Frame, area: Rect, app: &App) {
         .map(|(i, field)| {
             let value = form.field_value(field);
             let is_focused = i == focused_idx;
-            let label_style = if is_focused { Theme::key() } else { Theme::dim() };
+            let label_style = if is_focused {
+                Theme::key()
+            } else {
+                Theme::dim()
+            };
             let value_style = if value.is_empty() {
                 Theme::dim()
             } else {
@@ -46,7 +50,14 @@ fn render_field_list(f: &mut Frame, area: Rect, app: &App) {
             } else {
                 Line::from(vec![
                     Span::styled(format!("  {:<22}", field.label()), label_style),
-                    Span::styled(if value.is_empty() { "—".into() } else { value }, value_style),
+                    Span::styled(
+                        if value.is_empty() {
+                            "—".into()
+                        } else {
+                            value
+                        },
+                        value_style,
+                    ),
                 ])
             };
             ListItem::new(line)
@@ -114,7 +125,9 @@ fn render_text_input(f: &mut Frame, area: Rect, app: &App, field: &ClusterFormFi
 
     let hint = match field {
         ClusterFormField::BootstrapServers => "  e.g. broker1:9092,broker2:9092",
-        ClusterFormField::SchemaRegistryUrl => "  e.g. http://schema-registry:8081  (leave blank to skip)",
+        ClusterFormField::SchemaRegistryUrl => {
+            "  e.g. http://schema-registry:8081  (leave blank to skip)"
+        }
         ClusterFormField::KerberosServiceName => "  default: kafka",
         _ => "",
     };
@@ -126,7 +139,11 @@ fn render_text_input(f: &mut Frame, area: Rect, app: &App, field: &ClusterFormFi
         Line::from(Span::styled(hint, Theme::dim())),
         Line::from(""),
         Line::from(Span::styled(
-            if is_editing { "  [Enter] confirm  [Esc] cancel" } else { "  [Enter] edit" },
+            if is_editing {
+                "  [Enter] confirm  [Esc] cancel"
+            } else {
+                "  [Enter] edit"
+            },
             Theme::dim(),
         )),
     ];
@@ -174,7 +191,9 @@ fn render_auth_selector(f: &mut Frame, area: Rect, app: &App) {
 fn render_boolean_selector(f: &mut Frame, area: Rect, app: &App) {
     let form = &app.cluster_form;
     let items: Vec<ListItem> = vec![
-        ListItem::new(Line::from(Span::raw("  yes — verify server hostname (recommended)"))),
+        ListItem::new(Line::from(Span::raw(
+            "  yes — verify server hostname (recommended)",
+        ))),
         ListItem::new(Line::from(Span::raw("  no  — skip hostname verification"))),
     ];
 
@@ -201,17 +220,33 @@ fn render_submit_panel(f: &mut Frame, area: Rect, app: &App) {
     let content = vec![
         Line::from(""),
         Line::from(Span::styled(
-            if valid { "  ✓ Configuration looks good" } else { "  ✗ Name and Bootstrap Servers are required" },
-            if valid { Theme::success() } else { Theme::error() },
+            if valid {
+                "  ✓ Configuration looks good"
+            } else {
+                "  ✗ Name and Bootstrap Servers are required"
+            },
+            if valid {
+                Theme::success()
+            } else {
+                Theme::error()
+            },
         )),
         Line::from(""),
         Line::from(vec![
             Span::styled("  Name:       ", Theme::key()),
-            Span::raw(if form.name.is_empty() { "(empty)" } else { &form.name }),
+            Span::raw(if form.name.is_empty() {
+                "(empty)"
+            } else {
+                &form.name
+            }),
         ]),
         Line::from(vec![
             Span::styled("  Brokers:    ", Theme::key()),
-            Span::raw(if form.bootstrap_servers.is_empty() { "(empty)" } else { &form.bootstrap_servers }),
+            Span::raw(if form.bootstrap_servers.is_empty() {
+                "(empty)"
+            } else {
+                &form.bootstrap_servers
+            }),
         ]),
         Line::from(vec![
             Span::styled("  Auth:       ", Theme::key()),
@@ -233,7 +268,11 @@ fn render_submit_panel(f: &mut Frame, area: Rect, app: &App) {
             .title(" Ready to Save ")
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(if valid { Theme::success() } else { Theme::error() }),
+            .border_style(if valid {
+                Theme::success()
+            } else {
+                Theme::error()
+            }),
     );
     f.render_widget(para, area);
 }

@@ -1,11 +1,11 @@
+use crate::app::App;
+use crate::ui::{layout::centered_rect, theme::Theme};
 use ratatui::{
     layout::Rect,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::ui::{layout::centered_rect, theme::Theme};
 
 pub fn render_error(f: &mut Frame, area: Rect, app: &App) {
     if let Some(msg) = &app.error_message {

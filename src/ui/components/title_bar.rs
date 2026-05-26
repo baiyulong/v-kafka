@@ -1,11 +1,11 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::Rect,
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let cluster_name = app

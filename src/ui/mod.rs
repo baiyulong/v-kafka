@@ -2,8 +2,8 @@ pub mod components;
 pub mod layout;
 pub mod theme;
 
-use ratatui::Frame;
 use crate::app::{App, View};
+use ratatui::Frame;
 
 pub fn render(f: &mut Frame, app: &App) {
     let chunks = layout::build_layout(f.area());

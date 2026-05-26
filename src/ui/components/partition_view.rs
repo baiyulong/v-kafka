@@ -1,11 +1,11 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -19,38 +19,52 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
 fn render_list(f: &mut Frame, area: Rect, app: &App) {
     let topic_name = app.selected_topic.as_deref().unwrap_or("—");
-    let partitions = app.selected_topic_meta()
+    let partitions = app
+        .selected_topic_meta()
         .map(|t| t.partitions.as_slice())
         .unwrap_or(&[]);
 
-    let items: Vec<ListItem> = partitions.iter().map(|p| {
-        // Match watermark for this partition
-        let wm = app.watermarks.iter().find(|(id, _, _)| *id == p.id);
-        let (low, high) = wm.map(|(_, l, h)| (*l, *h)).unwrap_or((-1, -1));
-        let msgs = if high >= low && low >= 0 { high - low } else { 0 };
-
-        let err_indicator = if p.error.is_some() { "⚠ " } else { "" };
-        let line = Line::from(vec![
-            Span::styled(format!("  {:>3}  ", p.id), Theme::key()),
-            Span::styled(format!("L:{:<4} ", p.leader), Theme::normal()),
-            Span::styled(err_indicator, Theme::error()),
-            if high >= 0 {
-                Span::styled(format!("{} msgs", msgs), Theme::success())
+    let items: Vec<ListItem> = partitions
+        .iter()
+        .map(|p| {
+            // Match watermark for this partition
+            let wm = app.watermarks.iter().find(|(id, _, _)| *id == p.id);
+            let (low, high) = wm.map(|(_, l, h)| (*l, *h)).unwrap_or((-1, -1));
+            let msgs = if high >= low && low >= 0 {
+                high - low
             } else {
-                Span::styled("—", Theme::dim())
-            },
-        ]);
-        ListItem::new(line)
-    }).collect();
+                0
+            };
+
+            let err_indicator = if p.error.is_some() { "⚠ " } else { "" };
+            let line = Line::from(vec![
+                Span::styled(format!("  {:>3}  ", p.id), Theme::key()),
+                Span::styled(format!("L:{:<4} ", p.leader), Theme::normal()),
+                Span::styled(err_indicator, Theme::error()),
+                if high >= 0 {
+                    Span::styled(format!("{} msgs", msgs), Theme::success())
+                } else {
+                    Span::styled("—", Theme::dim())
+                },
+            ]);
+            ListItem::new(line)
+        })
+        .collect();
 
     let list = List::new(if items.is_empty() {
-        vec![ListItem::new(Line::from(Span::styled("  No partitions", Theme::dim())))]
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No partitions",
+            Theme::dim(),
+        )))]
     } else {
         items
     })
     .block(
         Block::default()
-            .title(format!(" {} — Partitions  [r]efresh [Enter]browse ", topic_name))
+            .title(format!(
+                " {} — Partitions  [r]efresh [Enter]browse ",
+                topic_name
+            ))
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Theme::block_active()),
@@ -60,19 +74,20 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
 
     let mut state = ListState::default();
     if !partitions.is_empty() {
-        state.select(Some(app.list_cursor.min(partitions.len().saturating_sub(1))));
+        state.select(Some(
+            app.list_cursor.min(partitions.len().saturating_sub(1)),
+        ));
     }
     f.render_stateful_widget(list, area, &mut state);
 }
 
 fn render_detail(f: &mut Frame, area: Rect, app: &App) {
-    let partitions = app.selected_topic_meta()
+    let partitions = app
+        .selected_topic_meta()
         .map(|t| t.partitions.as_slice())
         .unwrap_or(&[]);
 
-    let partition = partitions.get(
-        app.list_cursor.min(partitions.len().saturating_sub(1))
-    );
+    let partition = partitions.get(app.list_cursor.min(partitions.len().saturating_sub(1)));
 
     let content = match partition {
         None => vec![
@@ -82,10 +97,24 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
         Some(p) => {
             let wm = app.watermarks.iter().find(|(id, _, _)| *id == p.id);
             let (low, high) = wm.map(|(_, l, h)| (*l, *h)).unwrap_or((-1, -1));
-            let msgs = if high >= low && low >= 0 { high - low } else { 0 };
+            let msgs = if high >= low && low >= 0 {
+                high - low
+            } else {
+                0
+            };
 
-            let replicas_str = p.replicas.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ");
-            let isr_str = p.isr.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
+            let replicas_str = p
+                .replicas
+                .iter()
+                .map(|r| r.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let isr_str = p
+                .isr
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
 
             vec![
                 Line::from(""),
@@ -109,21 +138,33 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
                 Line::from(vec![
                     Span::styled("  Earliest Offset ", Theme::key()),
                     Span::styled(
-                        if low >= 0 { low.to_string() } else { "—".into() },
+                        if low >= 0 {
+                            low.to_string()
+                        } else {
+                            "—".into()
+                        },
                         Theme::normal(),
                     ),
                 ]),
                 Line::from(vec![
                     Span::styled("  Latest Offset   ", Theme::key()),
                     Span::styled(
-                        if high >= 0 { high.to_string() } else { "—".into() },
+                        if high >= 0 {
+                            high.to_string()
+                        } else {
+                            "—".into()
+                        },
                         Theme::normal(),
                     ),
                 ]),
                 Line::from(vec![
                     Span::styled("  Message Count   ", Theme::key()),
                     Span::styled(
-                        if high >= 0 { msgs.to_string() } else { "—".into() },
+                        if high >= 0 {
+                            msgs.to_string()
+                        } else {
+                            "—".into()
+                        },
                         Theme::success(),
                     ),
                 ]),

@@ -1,11 +1,11 @@
+use crate::app::App;
+use crate::ui::theme::Theme;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::App;
-use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
@@ -21,22 +21,29 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
     let topics = app.filtered_topics();
     let total = app.metadata.topics.len();
 
-    let items: Vec<ListItem> = topics.iter().map(|t| {
-        let part_str = format!("{}", t.partition_count());
-        let repl_str = format!("{}", t.replication_factor());
-        let line = Line::from(vec![
-            Span::styled(if t.is_internal { "  𝑖 " } else { "  ▤ " }, Theme::dim()),
-            Span::styled(
-                t.name.clone(),
-                if t.is_internal { Theme::dim() } else { Theme::normal() },
-            ),
-            Span::raw("  "),
-            Span::styled(format!("P:{}", part_str), Theme::key()),
-            Span::raw(" "),
-            Span::styled(format!("R:{}", repl_str), Theme::dim()),
-        ]);
-        ListItem::new(line)
-    }).collect();
+    let items: Vec<ListItem> = topics
+        .iter()
+        .map(|t| {
+            let part_str = format!("{}", t.partition_count());
+            let repl_str = format!("{}", t.replication_factor());
+            let line = Line::from(vec![
+                Span::styled(if t.is_internal { "  𝑖 " } else { "  ▤ " }, Theme::dim()),
+                Span::styled(
+                    t.name.clone(),
+                    if t.is_internal {
+                        Theme::dim()
+                    } else {
+                        Theme::normal()
+                    },
+                ),
+                Span::raw("  "),
+                Span::styled(format!("P:{}", part_str), Theme::key()),
+                Span::raw(" "),
+                Span::styled(format!("R:{}", repl_str), Theme::dim()),
+            ]);
+            ListItem::new(line)
+        })
+        .collect();
 
     let filter_hint = if !app.filter.is_empty() {
         format!(" filter:'{}' ({}/{}) ", app.filter, items.len(), total)
@@ -48,7 +55,11 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
 
     let list = List::new(if items.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
-            if app.loading { "  Loading…" } else { "  No topics found" },
+            if app.loading {
+                "  Loading…"
+            } else {
+                "  No topics found"
+            },
             Theme::dim(),
         )))]
     } else {
@@ -102,7 +113,11 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
                     Span::styled("  Internal        ", Theme::key()),
                     Span::styled(
                         if t.is_internal { "yes" } else { "no" },
-                        if t.is_internal { Theme::dim() } else { Theme::normal() },
+                        if t.is_internal {
+                            Theme::dim()
+                        } else {
+                            Theme::normal()
+                        },
                     ),
                 ]),
                 Line::from(""),
@@ -110,7 +125,12 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
             ];
 
             for p in t.partitions.iter().take(10) {
-                let isr_str = p.isr.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+                let isr_str = p
+                    .isr
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
                 let err = p.error.as_deref().unwrap_or("");
                 lines.push(Line::from(vec![
                     Span::styled(format!("    {:>3} ", p.id), Theme::dim()),

@@ -79,7 +79,10 @@ impl ClusterConfig {
     /// Build rdkafka ClientConfig entries from this cluster config
     pub fn to_rdkafka_config(&self) -> Vec<(String, String)> {
         let mut cfg = vec![
-            ("bootstrap.servers".to_string(), self.bootstrap_servers.clone()),
+            (
+                "bootstrap.servers".to_string(),
+                self.bootstrap_servers.clone(),
+            ),
             (
                 "client.id".to_string(),
                 self.client_id
@@ -97,7 +100,10 @@ impl ClusterConfig {
                 self.apply_ssl_config(&mut cfg);
             }
             AuthMechanism::SaslPlain => {
-                cfg.push(("security.protocol".to_string(), "sasl_plaintext".to_string()));
+                cfg.push((
+                    "security.protocol".to_string(),
+                    "sasl_plaintext".to_string(),
+                ));
                 cfg.push(("sasl.mechanism".to_string(), "PLAIN".to_string()));
                 self.apply_sasl_config(&mut cfg);
             }
@@ -114,12 +120,18 @@ impl ClusterConfig {
                 self.apply_sasl_config(&mut cfg);
             }
             AuthMechanism::Kerberos => {
-                cfg.push(("security.protocol".to_string(), "sasl_plaintext".to_string()));
+                cfg.push((
+                    "security.protocol".to_string(),
+                    "sasl_plaintext".to_string(),
+                ));
                 cfg.push(("sasl.mechanism".to_string(), "GSSAPI".to_string()));
                 if let Some(sn) = &self.sasl.kerberos_service_name {
                     cfg.push(("sasl.kerberos.service.name".to_string(), sn.clone()));
                 } else {
-                    cfg.push(("sasl.kerberos.service.name".to_string(), "kafka".to_string()));
+                    cfg.push((
+                        "sasl.kerberos.service.name".to_string(),
+                        "kafka".to_string(),
+                    ));
                 }
                 if let Some(principal) = &self.sasl.kerberos_principal {
                     cfg.push(("sasl.kerberos.principal".to_string(), principal.clone()));
@@ -148,7 +160,12 @@ impl ClusterConfig {
         }
         cfg.push((
             "enable.ssl.certificate.verification".to_string(),
-            if self.ssl.verify_hostname { "true" } else { "false" }.to_string(),
+            if self.ssl.verify_hostname {
+                "true"
+            } else {
+                "false"
+            }
+            .to_string(),
         ));
     }
 

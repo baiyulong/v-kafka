@@ -5,7 +5,10 @@ pub struct Theme;
 impl Theme {
     // Title bar
     pub fn title_bar() -> Style {
-        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     }
 
     // Status bar
@@ -15,12 +18,18 @@ impl Theme {
 
     // Selected item in a list
     pub fn selected() -> Style {
-        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     }
 
     // Highlighted item in a stateful list
     pub fn list_selected() -> Style {
-        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     }
 
     // Normal list item
@@ -40,7 +49,9 @@ impl Theme {
 
     // Key hint labels in help text
     pub fn key_hint() -> Style {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     }
 
     // Success / good state
