@@ -1,7 +1,10 @@
 use anyhow::Result;
 use crate::config::cluster::{AuthMechanism, ClusterConfig, SaslConfig, SchemaRegistryConfig, SslConfig};
 use crate::config::profile::{ClusterProfile, ProfileManager};
+use crate::kafka::admin::AclEntry;
 use crate::kafka::client::KafkaClient;
+use crate::kafka::consumer::KafkaMessage;
+use crate::kafka::consumer_group::{GroupInfo, GroupPartitionOffset};
 use crate::kafka::metadata::CachedMetadata;
 
 /// Top-level view/screen of the application
@@ -21,6 +24,56 @@ pub enum View {
     SchemaDetail,
     AclManagement,
     Help,
+}
+
+/// What the user is currently typing in the message browser
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum MessageInput {
+    #[default]
+    None,
+    Offset,
+    Timestamp,
+    Filter,
+}
+
+/// Producer form state
+#[derive(Debug, Default, Clone)]
+pub struct ProducerForm {
+    pub topic: String,
+    pub partition: String,
+    pub key: String,
+    pub value: String,
+    pub headers: String,
+    pub focused_field: usize,
+    pub last_result: Option<String>,
+}
+
+impl ProducerForm {
+    pub const FIELDS: &'static [&'static str] =
+        &["Topic", "Partition (empty=auto)", "Key", "Value", "Headers (k=v,k2=v2)", "[ Send ]"];
+
+    pub fn current_str_mut(&mut self) -> Option<&mut String> {
+        match self.focused_field {
+            0 => Some(&mut self.topic),
+            1 => Some(&mut self.partition),
+            2 => Some(&mut self.key),
+            3 => Some(&mut self.value),
+            4 => Some(&mut self.headers),
+            _ => None,
+        }
+    }
+
+    pub fn field_value(&self, idx: usize) -> String {
+        match idx {
+            0 => self.topic.clone(),
+            1 => self.partition.clone(),
+            2 => self.key.clone(),
+            3 => self.value.clone(),
+            4 => self.headers.clone(),
+            5 => String::new(),
+            _ => String::new(),
+        }
+    }
 }
 
 /// Input mode determines how keyboard events are routed
@@ -283,6 +336,24 @@ pub struct App {
     pub new_topic_name: String,
     pub new_topic_partitions: String,
     pub new_topic_replication: String,
+    // ── Phase 4: Message browser ─────────────────────────────────────────────
+    pub messages: Vec<KafkaMessage>,
+    pub messages_loading: bool,
+    /// Start offset of current page (-1 = beginning)
+    pub messages_start_offset: i64,
+    pub selected_message_idx: Option<usize>,
+    /// What the user is currently typing in message browser
+    pub message_input: MessageInput,
+    // ── Phase 5: Consumer groups ──────────────────────────────────────────────
+    pub consumer_groups: Vec<GroupInfo>,
+    pub consumer_groups_loading: bool,
+    pub consumer_group_offsets: Vec<GroupPartitionOffset>,
+    pub group_offsets_loading: bool,
+    // ── Phase 6: Producer form ────────────────────────────────────────────────
+    pub producer_form: ProducerForm,
+    // ── Phase 9: ACL management ───────────────────────────────────────────────
+    pub acl_list: Vec<AclEntry>,
+    pub acl_loading: bool,
 }
 
 impl App {
@@ -313,6 +384,18 @@ impl App {
             new_topic_name: String::new(),
             new_topic_partitions: "1".to_string(),
             new_topic_replication: "1".to_string(),
+            messages: Vec::new(),
+            messages_loading: false,
+            messages_start_offset: -1,
+            selected_message_idx: None,
+            message_input: MessageInput::None,
+            consumer_groups: Vec::new(),
+            consumer_groups_loading: false,
+            consumer_group_offsets: Vec::new(),
+            group_offsets_loading: false,
+            producer_form: ProducerForm::default(),
+            acl_list: Vec::new(),
+            acl_loading: false,
         })
     }
 

@@ -35,3 +35,31 @@ pub async fn delete_topics(
     }
     Ok(())
 }
+
+/// A simplified ACL entry for display purposes
+#[derive(Debug, Clone)]
+pub struct AclEntry {
+    pub resource_type: String,
+    pub name: String,
+    pub pattern_type: String,
+    pub principal: String,
+    pub host: String,
+    pub operation: String,
+    pub permission: String,
+}
+
+/// Fetch all ACL entries.
+/// Note: rdkafka 0.36 does not expose ACL admin API bindings.
+pub async fn describe_acls(
+    _admin: &AdminClient<DefaultClientContext>,
+) -> Result<Vec<AclEntry>> {
+    Ok(vec![])
+}
+
+/// Delete an ACL entry (not available in rdkafka 0.36 bindings).
+pub async fn delete_acl(
+    _admin: &AdminClient<DefaultClientContext>,
+    _entry: &AclEntry,
+) -> Result<()> {
+    anyhow::bail!("ACL deletion not supported in rdkafka 0.36 bindings")
+}
