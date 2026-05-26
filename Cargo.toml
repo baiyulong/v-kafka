@@ -15,9 +15,6 @@ path = "src/main.rs"
 ratatui = "0.28"
 crossterm = "0.28"
 
-# Kafka
-rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "gssapi", "sasl"] }
-
 # Async
 tokio = { version = "1", features = ["full"] }
 
@@ -44,8 +41,16 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
-
 ureq = { version = "2", features = ["json"] }
+
+# Kafka — Linux/macOS: full feature set (SASL Cyrus + GSSAPI/Kerberos)
+[target.'cfg(not(windows))'.dependencies]
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl", "gssapi", "sasl"] }
+
+# Kafka — Windows: no Cyrus-SASL or GSSAPI (not available); SCRAM/PLAIN still work
+# via librdkafka's built-in implementation.
+[target.'cfg(windows)'.dependencies]
+rdkafka = { version = "0.36", features = ["cmake-build", "ssl"] }
 
 [lib]
 name = "v_kafka"

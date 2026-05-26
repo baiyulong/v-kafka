@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +30,21 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install cmake openssl pkg-config
+
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install openssl --no-progress -y
+          # Chocolatey installs OpenSSL to C:\Program Files\OpenSSL-Win64
+          $opensslDir = "C:\Program Files\OpenSSL-Win64"
+          if (-Not (Test-Path $opensslDir)) {
+            $opensslDir = "C:\Program Files\OpenSSL"
+          }
+          echo "OPENSSL_DIR=$opensslDir" >> $env:GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$opensslDir\include" >> $env:GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$opensslDir\lib\VC\x64\MD" >> $env:GITHUB_ENV
+          echo "OPENSSL_STATIC=0" >> $env:GITHUB_ENV
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,3 +76,10 @@ jobs:
         with:
           name: vk-linux-x86_64
           path: target/release/vk
+
+      - name: Upload binary (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vk-windows-x86_64
+          path: target/release/vk.exe

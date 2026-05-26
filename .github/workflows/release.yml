@@ -19,14 +19,21 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary: vk
             archive: vk-linux-x86_64.tar.gz
+
           - os: macos-latest
             target: x86_64-apple-darwin
             binary: vk
             archive: vk-macos-x86_64.tar.gz
+
           - os: macos-latest
             target: aarch64-apple-darwin
             binary: vk
             archive: vk-macos-arm64.tar.gz
+
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: vk.exe
+            archive: vk-windows-x86_64.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +47,20 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install cmake openssl pkg-config
+
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install openssl --no-progress -y
+          $opensslDir = "C:\Program Files\OpenSSL-Win64"
+          if (-Not (Test-Path $opensslDir)) {
+            $opensslDir = "C:\Program Files\OpenSSL"
+          }
+          echo "OPENSSL_DIR=$opensslDir" >> $env:GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$opensslDir\include" >> $env:GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$opensslDir\lib\VC\x64\MD" >> $env:GITHUB_ENV
+          echo "OPENSSL_STATIC=0" >> $env:GITHUB_ENV
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -58,11 +79,18 @@ jobs:
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (tar.gz — Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../${{ matrix.archive }} ${{ matrix.binary }}
-          cd ../../..
+
+      - name: Package (zip — Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path ${{ matrix.binary }} -DestinationPath ../../../${{ matrix.archive }}
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
