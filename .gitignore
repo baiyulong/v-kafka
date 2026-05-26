@@ -1,1 +1,4 @@
 /target
+
+# SSL certificates (contain private CA info)
+ssl/

@@ -1,5 +1,6 @@
 pub mod acl_view;
 pub mod broker_info;
+pub mod cluster_form;
 pub mod cluster_list;
 pub mod consumer_groups;
 pub mod dialog;

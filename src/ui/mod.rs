@@ -14,6 +14,7 @@ pub fn render(f: &mut Frame, app: &App) {
     // Main content area
     match &app.current_view {
         View::ClusterList => components::cluster_list::render(f, chunks[1], app),
+        View::ClusterForm => components::cluster_form::render(f, chunks[1], app),
         View::BrokerInfo => components::broker_info::render(f, chunks[1], app),
         View::TopicList => components::topic_list::render(f, chunks[1], app),
         View::PartitionDetail => components::partition_view::render(f, chunks[1], app),
