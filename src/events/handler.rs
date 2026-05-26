@@ -61,6 +61,7 @@ async fn handle_normal(key: KeyEvent, app: &mut App) -> Result<()> {
         View::ProducerForm        => { handle_producer_normal(key, app); Ok(()) }
         View::BrokerInfo          => handle_broker_info(key, app).await,
         View::AclManagement       => handle_acl_management(key, app).await,
+        View::SchemaRegistry      => handle_schema_registry(key, app).await,
         View::Help                => { app.navigate_back(); Ok(()) }
         _                         => Ok(()),
     }
@@ -169,7 +170,10 @@ async fn handle_topic_list(key: KeyEvent, app: &mut App) -> Result<()> {
             app.navigate_to(View::ConsumerGroups);
             load_consumer_groups(app).await?;
         }
-        KeyCode::Char('s') => app.navigate_to(View::SchemaRegistry),
+        KeyCode::Char('s') => {
+            app.navigate_to(View::SchemaRegistry);
+            load_schema_subjects(app).await?;
+        }
         KeyCode::Char('a') => {
             app.navigate_to(View::AclManagement);
             load_acls(app).await?;
@@ -553,7 +557,94 @@ async fn load_acls(app: &mut App) -> Result<()> {
     Ok(())
 }
 
-// ─── Producer form ────────────────────────────────────────────────────────────
+// ─── Schema Registry ─────────────────────────────────────────────────────────
+
+async fn handle_schema_registry(key: KeyEvent, app: &mut App) -> Result<()> {
+    let count = app.schema_subjects.len();
+    match key.code {
+        KeyCode::Down | KeyCode::Char('j') if app.schema_detail.is_some() => {
+            app.scroll_offset = app.scroll_offset.saturating_add(1);
+        }
+        KeyCode::Up | KeyCode::Char('k') if app.schema_detail.is_some() => {
+            app.scroll_offset = app.scroll_offset.saturating_sub(1);
+        }
+        KeyCode::Down | KeyCode::Char('j') if count > 0 => {
+            app.schema_subjects_cursor = (app.schema_subjects_cursor + 1).min(count - 1);
+            app.schema_detail = None;
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.schema_subjects_cursor = app.schema_subjects_cursor.saturating_sub(1);
+            app.schema_detail = None;
+        }
+        KeyCode::PageDown => app.scroll_offset = app.scroll_offset.saturating_add(20),
+        KeyCode::PageUp => app.scroll_offset = app.scroll_offset.saturating_sub(20),
+        KeyCode::Enter if count > 0 => {
+            load_schema_detail(app).await?;
+        }
+        KeyCode::Char('r') => load_schema_subjects(app).await?,
+        _ => {}
+    }
+    Ok(())
+}
+
+async fn load_schema_subjects(app: &mut App) -> Result<()> {
+    let registry = match app.schema_registry_client() {
+        Some(r) => r,
+        None => {
+            app.set_error("No Schema Registry configured for this cluster.");
+            return Ok(());
+        }
+    };
+    app.schema_subjects_loading = true;
+    app.schema_subjects = Vec::new();
+    app.schema_detail = None;
+    app.set_status("Loading Schema Registry subjects…");
+    let result = tokio::task::spawn_blocking(move || registry.list_subjects()).await?;
+    app.schema_subjects_loading = false;
+    match result {
+        Ok(mut subjects) => {
+            subjects.sort();
+            app.schema_subjects_cursor = 0;
+            let n = subjects.len();
+            app.schema_subjects = subjects;
+            app.set_status(format!("Schema Registry: {} subjects", n));
+        }
+        Err(e) => app.set_error(format!("Schema Registry error: {}", e)),
+    }
+    Ok(())
+}
+
+async fn load_schema_detail(app: &mut App) -> Result<()> {
+    let registry = match app.schema_registry_client() {
+        Some(r) => r,
+        None => {
+            app.set_error("No Schema Registry configured for this cluster.");
+            return Ok(());
+        }
+    };
+    let subject = match app.schema_subjects.get(app.schema_subjects_cursor) {
+        Some(s) => s.clone(),
+        None => return Ok(()),
+    };
+    app.schema_detail_loading = true;
+    app.scroll_offset = 0;
+    app.set_status(format!("Loading schema for {}…", subject));
+    let result = tokio::task::spawn_blocking(move || registry.get_latest_schema(&subject)).await?;
+    app.schema_detail_loading = false;
+    match result {
+        Ok(detail) => {
+            app.set_status(format!(
+                "Schema: {} v{} (id={})",
+                detail.subject, detail.version, detail.id
+            ));
+            app.schema_detail = Some(detail);
+        }
+        Err(e) => app.set_error(format!("Schema fetch error: {}", e)),
+    }
+    Ok(())
+}
+
+
 
 fn handle_producer_normal(key: KeyEvent, app: &mut App) {
     match key.code {

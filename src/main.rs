@@ -7,15 +7,9 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
 
-mod app;
-mod config;
-mod decoder;
-mod events;
-mod kafka;
-mod ui;
-
-use app::App;
-use events::EventHandler;
+use v_kafka::app::App;
+use v_kafka::events::{self, EventHandler};
+use v_kafka::ui;
 
 #[tokio::main]
 async fn main() -> Result<()> {

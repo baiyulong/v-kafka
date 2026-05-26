@@ -6,6 +6,7 @@ use crate::kafka::client::KafkaClient;
 use crate::kafka::consumer::KafkaMessage;
 use crate::kafka::consumer_group::{GroupInfo, GroupPartitionOffset};
 use crate::kafka::metadata::CachedMetadata;
+use crate::kafka::schema_registry::{SchemaDetail, SchemaRegistryClient};
 
 /// Top-level view/screen of the application
 #[derive(Debug, Clone, PartialEq)]
@@ -21,7 +22,6 @@ pub enum View {
     ConsumerGroupDetail,
     ProducerForm,
     SchemaRegistry,
-    SchemaDetail,
     AclManagement,
     Help,
 }
@@ -355,6 +355,15 @@ pub struct App {
     // ── Phase 9: ACL management ───────────────────────────────────────────────
     pub acl_list: Vec<AclEntry>,
     pub acl_loading: bool,
+    // ── Phase 8: Schema Registry browser ─────────────────────────────────────
+    pub schema_subjects: Vec<String>,
+    pub schema_subjects_loading: bool,
+    pub schema_subjects_cursor: usize,
+    /// Versions for the selected subject
+    pub schema_versions: Vec<i32>,
+    /// Currently displayed schema detail
+    pub schema_detail: Option<SchemaDetail>,
+    pub schema_detail_loading: bool,
 }
 
 impl App {
@@ -397,6 +406,12 @@ impl App {
             producer_form: ProducerForm::default(),
             acl_list: Vec::new(),
             acl_loading: false,
+            schema_subjects: Vec::new(),
+            schema_subjects_loading: false,
+            schema_subjects_cursor: 0,
+            schema_versions: Vec::new(),
+            schema_detail: None,
+            schema_detail_loading: false,
         })
     }
 
@@ -478,6 +493,17 @@ impl App {
     pub fn selected_topic_meta(&self) -> Option<&crate::kafka::metadata::TopicMeta> {
         let name = self.selected_topic.as_deref()?;
         self.metadata.topics.iter().find(|t| t.name == name)
+    }
+
+    /// Build a SchemaRegistryClient from the active cluster's config (if configured)
+    pub fn schema_registry_client(&self) -> Option<SchemaRegistryClient> {
+        let cluster = self.active_cluster.as_ref()?;
+        let sr = cluster.cluster.schema_registry.as_ref()?;
+        Some(SchemaRegistryClient::new(
+            sr.url.clone(),
+            sr.username.clone(),
+            sr.password.clone(),
+        ))
     }
 
     pub async fn on_tick(&mut self) {}

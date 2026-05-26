@@ -18,6 +18,11 @@ impl Theme {
         Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
     }
 
+    // Highlighted item in a stateful list
+    pub fn list_selected() -> Style {
+        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+    }
+
     // Normal list item
     pub fn normal() -> Style {
         Style::default().fg(Color::White)
@@ -31,6 +36,11 @@ impl Theme {
     // Highlighted key or header
     pub fn key() -> Style {
         Style::default().fg(Color::Yellow)
+    }
+
+    // Key hint labels in help text
+    pub fn key_hint() -> Style {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
     }
 
     // Success / good state
@@ -56,5 +66,10 @@ impl Theme {
     // Active / focused block border
     pub fn block_active() -> Style {
         Style::default().fg(Color::Cyan)
+    }
+
+    // Inactive / unfocused block border
+    pub fn block_inactive() -> Style {
+        Style::default().fg(Color::DarkGray)
     }
 }

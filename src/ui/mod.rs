@@ -24,7 +24,6 @@ pub fn render(f: &mut Frame, app: &App) {
         View::ConsumerGroupDetail => components::consumer_groups::render_detail(f, chunks[1], app),
         View::ProducerForm => components::producer_form::render(f, chunks[1], app),
         View::SchemaRegistry => components::schema_registry::render(f, chunks[1], app),
-        View::SchemaDetail => components::schema_registry::render_detail(f, chunks[1], app),
         View::AclManagement => components::acl_view::render(f, chunks[1], app),
         View::Help => components::help::render(f, f.area()),
     }

@@ -5,6 +5,7 @@ use ratatui::{
     Frame,
 };
 use crate::app::App;
+use crate::decoder::auto_decode_value;
 use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -63,9 +64,19 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
+    // Decode value: use auto_decode (detects Avro wire format if Schema Registry configured)
+    let registry = app.schema_registry_client();
+    let (value_text, fmt) = match msg.payload.as_deref() {
+        None => ("(null)".to_string(), crate::decoder::DecoderFormat::Text),
+        Some(bytes) => auto_decode_value(bytes, registry.as_ref()),
+    };
+
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("  Value:", Theme::key())));
-    for line in msg.value_pretty().lines() {
+    lines.push(Line::from(vec![
+        Span::styled("  Value ", Theme::key()),
+        Span::styled(format!("[{:?}]:", fmt), Theme::dim()),
+    ]));
+    for line in value_text.lines() {
         lines.push(Line::from(vec![
             Span::styled("  ", Theme::normal()),
             Span::styled(line.to_string(), Theme::normal()),
