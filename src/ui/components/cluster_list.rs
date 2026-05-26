@@ -1,6 +1,5 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
@@ -25,7 +24,7 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
         .profiles
         .iter()
         .enumerate()
-        .map(|(i, cluster)| {
+        .map(|(_i, cluster)| {
             let auth_badge = auth_badge(&cluster.auth);
             let is_active = app.active_cluster.as_ref()
                 .map(|a| a.cluster.name == cluster.name)

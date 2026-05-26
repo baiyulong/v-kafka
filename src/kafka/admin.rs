@@ -1,19 +1,7 @@
 use anyhow::Result;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::client::DefaultClientContext;
-use rdkafka::metadata::Metadata;
-use rdkafka::ClientConfig;
 use std::time::Duration;
-
-/// Fetch cluster metadata (brokers + topic list)
-pub async fn fetch_metadata(
-    admin: &AdminClient<DefaultClientContext>,
-    timeout: Duration,
-) -> Result<Metadata> {
-    // AdminClient doesn't expose metadata directly; use a temporary consumer
-    // We store the ClientConfig separately for metadata fetches.
-    todo!("Implemented in Phase 3")
-}
 
 /// Create a new topic
 pub async fn create_topic(

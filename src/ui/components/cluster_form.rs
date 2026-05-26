@@ -1,11 +1,11 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
-use crate::app::{App, ClusterFormField, InputMode, AUTH_MECHANISMS};
+use crate::app::{App, ClusterFormField, InputMode};
 use crate::ui::theme::Theme;
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {

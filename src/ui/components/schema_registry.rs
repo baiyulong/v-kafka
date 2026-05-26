@@ -7,7 +7,7 @@ use ratatui::{
 use crate::app::App;
 use crate::ui::theme::Theme;
 
-pub fn render(f: &mut Frame, area: Rect, app: &App) {
+pub fn render(f: &mut Frame, area: Rect, _app: &App) {
     let content = vec![
         Line::from(Span::styled("  Schema Registry — Phase 8", Theme::dim())),
     ];
@@ -21,7 +21,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(para, area);
 }
 
-pub fn render_detail(f: &mut Frame, area: Rect, app: &App) {
+pub fn render_detail(f: &mut Frame, area: Rect, _app: &App) {
     let content = vec![
         Line::from(Span::styled("  Schema Detail — Phase 8", Theme::dim())),
     ];

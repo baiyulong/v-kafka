@@ -4,15 +4,14 @@ use std::time::Duration;
 
 use crate::app::{App, ClusterFormField, InputMode, View, AUTH_MECHANISMS};
 use crate::kafka::client::KafkaClient;
+use crate::kafka::metadata::{fetch_cluster_metadata, fetch_watermarks};
 
 pub async fn handle_key_event(key: KeyEvent, app: &mut App) -> Result<()> {
-    // Ctrl+C always quits
     if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
         app.should_quit = true;
         return Ok(());
     }
 
-    // Dismiss error popup on any key
     if app.error_message.is_some() {
         app.error_message = None;
         return Ok(());
@@ -45,14 +44,14 @@ async fn handle_normal(key: KeyEvent, app: &mut App) -> Result<()> {
     }
 
     match &app.current_view {
-        View::ClusterList => handle_cluster_list(key, app).await,
-        View::TopicList   => { handle_topic_list(key, app); Ok(()) }
-        View::PartitionDetail => { handle_partition_detail(key, app); Ok(()) }
+        View::ClusterList     => handle_cluster_list(key, app).await,
+        View::TopicList       => handle_topic_list(key, app).await,
+        View::PartitionDetail => handle_partition_detail(key, app).await,
         View::MessageBrowser  => { handle_message_browser(key, app); Ok(()) }
         View::MessageDetail   => { handle_message_detail(key, app); Ok(()) }
         View::ConsumerGroups  => { handle_consumer_groups(key, app); Ok(()) }
         View::ConsumerGroupDetail => { handle_consumer_group_detail(key, app); Ok(()) }
-        View::BrokerInfo      => { handle_broker_info(key, app); Ok(()) }
+        View::BrokerInfo      => handle_broker_info(key, app).await,
         View::Help            => { app.navigate_back(); Ok(()) }
         _ => Ok(()),
     }
@@ -95,17 +94,19 @@ async fn connect_to_cluster(app: &mut App) -> Result<()> {
 
     match KafkaClient::new(&cluster) {
         Ok(client) => {
-            match client.test_connection(Duration::from_secs(5)) {
-                Ok(info) => {
+            match fetch_cluster_metadata(&client.config, Duration::from_secs(8)) {
+                Ok(meta) => {
                     let msg = format!(
-                        "Connected: {} broker(s) at {}",
-                        info.broker_count,
-                        cluster.bootstrap_servers
+                        "Connected — {} broker(s), {} topics",
+                        meta.brokers.len(),
+                        meta.topics.iter().filter(|t| !t.is_internal).count()
                     );
-                    app.set_status(msg);
+                    app.metadata = meta;
                     app.active_cluster = Some(crate::config::profile::ClusterProfile { cluster });
                     app.kafka_client = Some(client);
+                    app.filter.clear();
                     app.navigate_to(View::TopicList);
+                    app.set_status(msg);
                 }
                 Err(e) => {
                     app.set_error(format!("Connection failed: {}", e));
@@ -119,32 +120,148 @@ async fn connect_to_cluster(app: &mut App) -> Result<()> {
     Ok(())
 }
 
-fn handle_topic_list(key: KeyEvent, app: &mut App) {
+async fn handle_topic_list(key: KeyEvent, app: &mut App) -> Result<()> {
+    let topics = app.filtered_topics();
+    let count = topics.len();
+
     match key.code {
-        KeyCode::Down | KeyCode::Char('j') => app.list_cursor = app.list_cursor.saturating_add(1),
-        KeyCode::Up | KeyCode::Char('k')   => app.list_cursor = app.list_cursor.saturating_sub(1),
-        KeyCode::Enter => app.navigate_to(View::PartitionDetail),
+        KeyCode::Down | KeyCode::Char('j') if count > 0 => {
+            app.list_cursor = (app.list_cursor + 1).min(count - 1);
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.list_cursor = app.list_cursor.saturating_sub(1);
+        }
+        KeyCode::Enter if count > 0 => {
+            // Record selected topic and load watermarks
+            let topic_name = topics[app.list_cursor.min(count - 1)].name.clone();
+            app.selected_topic = Some(topic_name.clone());
+            app.watermarks.clear();
+            // Fetch watermarks in blocking thread to avoid blocking async runtime
+            if let Some(client) = &app.kafka_client {
+                let cfg = client.config.clone();
+                let tn = topic_name.clone();
+                match tokio::task::spawn_blocking(move || {
+                    fetch_watermarks(&cfg, &tn, Duration::from_secs(8))
+                }).await {
+                    Ok(Ok(wm)) => {
+                        app.watermarks = wm;
+                        // Also update partition watermarks in metadata cache
+                        if let Some(t) = app.metadata.topics.iter_mut().find(|t| t.name == topic_name) {
+                            for p in t.partitions.iter_mut() {
+                                if let Some(&(_, low, high)) = app.watermarks.iter().find(|(id, _, _)| *id == p.id) {
+                                    p.low_watermark = Some(low);
+                                    p.high_watermark = Some(high);
+                                }
+                            }
+                        }
+                    }
+                    Ok(Err(e)) => app.set_status(format!("Watermark fetch failed: {}", e)),
+                    Err(e) => app.set_status(format!("Task error: {}", e)),
+                }
+            }
+            app.navigate_to(View::PartitionDetail);
+        }
         KeyCode::Char('b') => app.navigate_to(View::BrokerInfo),
         KeyCode::Char('g') => app.navigate_to(View::ConsumerGroups),
         KeyCode::Char('s') => app.navigate_to(View::SchemaRegistry),
         KeyCode::Char('a') => app.navigate_to(View::AclManagement),
         KeyCode::Char('p') => app.navigate_to(View::ProducerForm),
-        KeyCode::Char('r') => app.set_status("Refreshing topics…"),
+        KeyCode::Char('r') => {
+            refresh_metadata(app).await?;
+        }
         KeyCode::Char('/') => {
             app.input_mode = InputMode::Editing;
-            app.search_input.clear();
+            app.search_input = app.filter.clone();
+        }
+        KeyCode::Esc if !app.filter.is_empty() => {
+            app.filter.clear();
         }
         _ => {}
     }
+    Ok(())
 }
 
-fn handle_partition_detail(key: KeyEvent, app: &mut App) {
+async fn handle_partition_detail(key: KeyEvent, app: &mut App) -> Result<()> {
+    let partitions = app.selected_topic_meta()
+        .map(|t| t.partitions.len())
+        .unwrap_or(0);
+
     match key.code {
-        KeyCode::Enter => app.navigate_to(View::MessageBrowser),
-        KeyCode::Down | KeyCode::Char('j') => app.list_cursor = app.list_cursor.saturating_add(1),
-        KeyCode::Up | KeyCode::Char('k')   => app.list_cursor = app.list_cursor.saturating_sub(1),
+        KeyCode::Down | KeyCode::Char('j') if partitions > 0 => {
+            app.list_cursor = (app.list_cursor + 1).min(partitions - 1);
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.list_cursor = app.list_cursor.saturating_sub(1);
+        }
+        KeyCode::Enter => {
+            // Record selected partition
+            if let Some(p) = app.selected_topic_meta()
+                .and_then(|t| t.partitions.get(app.list_cursor))
+            {
+                app.selected_partition = Some(p.id);
+            }
+            app.navigate_to(View::MessageBrowser);
+        }
+        KeyCode::Char('r') => {
+            // Refresh watermarks for this topic
+            if let (Some(client), Some(topic)) = (&app.kafka_client, &app.selected_topic) {
+                let cfg = client.config.clone();
+                let tn = topic.clone();
+                match tokio::task::spawn_blocking(move || {
+                    fetch_watermarks(&cfg, &tn, Duration::from_secs(8))
+                }).await {
+                    Ok(Ok(wm)) => {
+                        app.watermarks = wm;
+                        app.set_status("Offsets refreshed");
+                    }
+                    Ok(Err(e)) => app.set_error(format!("Refresh failed: {}", e)),
+                    Err(e) => app.set_error(format!("Task error: {}", e)),
+                }
+            }
+        }
         _ => {}
     }
+    Ok(())
+}
+
+async fn handle_broker_info(key: KeyEvent, app: &mut App) -> Result<()> {
+    match key.code {
+        KeyCode::Down | KeyCode::Char('j') => {
+            let n = app.metadata.brokers.len();
+            if n > 0 { app.list_cursor = (app.list_cursor + 1).min(n - 1); }
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.list_cursor = app.list_cursor.saturating_sub(1);
+        }
+        KeyCode::Char('r') => {
+            refresh_metadata(app).await?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+async fn refresh_metadata(app: &mut App) -> Result<()> {
+    if let Some(client) = &app.kafka_client {
+        let cfg = client.config.clone();
+        app.set_status("Refreshing…");
+        match tokio::task::spawn_blocking(move || {
+            fetch_cluster_metadata(&cfg, Duration::from_secs(8))
+        }).await {
+            Ok(Ok(meta)) => {
+                let msg = format!(
+                    "Refreshed — {} brokers, {} topics",
+                    meta.brokers.len(),
+                    meta.topics.iter().filter(|t| !t.is_internal).count()
+                );
+                app.metadata = meta;
+                app.set_status(msg);
+            }
+            Ok(Err(e)) => app.set_error(format!("Refresh failed: {}", e)),
+            Err(e) => app.set_error(format!("Task error: {}", e)),
+        }
+    }
+    Ok(())
 }
 
 fn handle_message_browser(key: KeyEvent, app: &mut App) {
@@ -196,31 +313,27 @@ fn handle_consumer_group_detail(key: KeyEvent, app: &mut App) {
     }
 }
 
-fn handle_broker_info(key: KeyEvent, app: &mut App) {
-    if let KeyCode::Char('r') = key.code {
-        app.set_status("Refreshing broker info…");
-    }
-}
-
-// ─── Editing mode (cluster form) ─────────────────────────────────────────────
+// ─── Editing mode ─────────────────────────────────────────────────────────────
 
 async fn handle_editing(key: KeyEvent, app: &mut App) -> Result<()> {
-    // Non-form views use editing mode for search input
     if app.current_view != View::ClusterForm {
+        // Search/filter mode for topic list
         match key.code {
             KeyCode::Esc => {
                 app.input_mode = InputMode::Normal;
-                app.search_input.clear();
+                // Don't clear filter — just stop editing
             }
-            KeyCode::Enter => app.input_mode = InputMode::Normal,
+            KeyCode::Enter => {
+                app.filter = app.search_input.clone();
+                app.list_cursor = 0;
+                app.input_mode = InputMode::Normal;
+            }
             KeyCode::Backspace => { app.search_input.pop(); }
             KeyCode::Char(c) => app.search_input.push(c),
             _ => {}
         }
         return Ok(());
     }
-
-    // Cluster form editing
     handle_form_editing(key, app).await
 }
 
@@ -231,53 +344,40 @@ async fn handle_form_editing(key: KeyEvent, app: &mut App) -> Result<()> {
     let current_field = fields[focused].clone();
 
     match key.code {
-        // Esc: if actively typing, stop typing; else leave form
         KeyCode::Esc => {
             app.input_mode = InputMode::Normal;
+            app.navigate_back();
         }
-
-        // Tab / Shift+Tab: move between fields
         KeyCode::Tab => {
             app.cluster_form.focused_field_index = (focused + 1).min(max);
         }
         KeyCode::BackTab => {
             app.cluster_form.focused_field_index = focused.saturating_sub(1);
         }
-
         KeyCode::Enter => {
             match &current_field {
-                ClusterFormField::Submit => {
-                    // Save and test connection
-                    save_and_test(app).await?;
-                }
+                ClusterFormField::Submit => save_and_test(app).await?,
                 ClusterFormField::AuthMechanism => {
-                    // Toggle auth cycling on Enter
                     let next = (app.cluster_form.auth_index + 1) % AUTH_MECHANISMS.len();
                     app.cluster_form.auth_index = next;
-                    // Reset field index since fields change
-                    app.cluster_form.focused_field_index = focused.min(
-                        ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1
-                    );
+                    let new_max = ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1;
+                    app.cluster_form.focused_field_index = focused.min(new_max);
                 }
                 ClusterFormField::VerifyHostname => {
                     app.cluster_form.verify_hostname = !app.cluster_form.verify_hostname;
                 }
                 _ => {
-                    // For text fields Enter moves to next field
                     app.cluster_form.focused_field_index = (focused + 1).min(max);
                 }
             }
         }
-
-        // Arrow keys for selector fields
         KeyCode::Down | KeyCode::Char('j') => {
             match &current_field {
                 ClusterFormField::AuthMechanism => {
                     let next = (app.cluster_form.auth_index + 1).min(AUTH_MECHANISMS.len() - 1);
                     app.cluster_form.auth_index = next;
-                    app.cluster_form.focused_field_index = focused.min(
-                        ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1
-                    );
+                    let new_max = ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1;
+                    app.cluster_form.focused_field_index = focused.min(new_max);
                 }
                 ClusterFormField::VerifyHostname => {
                     app.cluster_form.verify_hostname = false;
@@ -291,9 +391,8 @@ async fn handle_form_editing(key: KeyEvent, app: &mut App) -> Result<()> {
             match &current_field {
                 ClusterFormField::AuthMechanism => {
                     app.cluster_form.auth_index = app.cluster_form.auth_index.saturating_sub(1);
-                    app.cluster_form.focused_field_index = focused.min(
-                        ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1
-                    );
+                    let new_max = ClusterFormField::fields_for(app.cluster_form.current_auth()).len() - 1;
+                    app.cluster_form.focused_field_index = focused.min(new_max);
                 }
                 ClusterFormField::VerifyHostname => {
                     app.cluster_form.verify_hostname = true;
@@ -303,8 +402,6 @@ async fn handle_form_editing(key: KeyEvent, app: &mut App) -> Result<()> {
                 }
             }
         }
-
-        // Text input for string fields
         KeyCode::Backspace => {
             if let Some(s) = app.cluster_form.focused_string_mut() {
                 s.pop();
@@ -315,7 +412,6 @@ async fn handle_form_editing(key: KeyEvent, app: &mut App) -> Result<()> {
                 s.push(c);
             }
         }
-
         _ => {}
     }
     Ok(())
@@ -331,43 +427,45 @@ async fn save_and_test(app: &mut App) -> Result<()> {
     let config = app.cluster_form.to_cluster_config();
     let name = config.name.clone();
 
-    // Test connection first
     app.set_status(format!("Testing connection to {}…", config.bootstrap_servers));
     match KafkaClient::new(&config) {
         Ok(client) => {
-            match client.test_connection(Duration::from_secs(5)) {
-                Ok(info) => {
-                    // Save profile
+            let cfg = client.config.clone();
+            match tokio::task::spawn_blocking(move || {
+                fetch_cluster_metadata(&cfg, Duration::from_secs(8))
+            }).await {
+                Ok(Ok(meta)) => {
                     if let Some(idx) = app.cluster_form_edit_index {
                         app.profile_manager.profiles[idx] = config;
-                        app.profile_manager.save()?;
                     } else {
-                        app.profile_manager.add(config)?;
+                        app.profile_manager.profiles.push(config);
                     }
+                    app.profile_manager.save()?;
                     app.input_mode = InputMode::Normal;
                     app.navigate_back();
                     app.set_status(format!(
-                        "✓ '{}' saved — {} broker(s) reachable",
-                        name, info.broker_count
+                        "✓ '{}' saved — {} broker(s), {} topics",
+                        name,
+                        meta.brokers.len(),
+                        meta.topics.iter().filter(|t| !t.is_internal).count()
                     ));
                 }
-                Err(e) => {
-                    // Still save but warn
+                Ok(Err(e)) => {
+                    // Save anyway, warn about connection
                     if let Some(idx) = app.cluster_form_edit_index {
                         app.profile_manager.profiles[idx] = app.cluster_form.to_cluster_config();
-                        app.profile_manager.save()?;
                     } else {
-                        app.profile_manager.add(app.cluster_form.to_cluster_config())?;
+                        app.profile_manager.profiles.push(app.cluster_form.to_cluster_config());
                     }
+                    app.profile_manager.save()?;
                     app.input_mode = InputMode::Normal;
                     app.navigate_back();
-                    app.set_status(format!("Saved '{}' (connection test failed: {})", name, e));
+                    app.set_status(format!("Saved '{}' (connection test: {})", name, e));
                 }
+                Err(e) => app.set_error(format!("Task error: {}", e)),
             }
         }
-        Err(e) => {
-            app.set_error(format!("Client error: {}", e));
-        }
+        Err(e) => app.set_error(format!("Client error: {}", e)),
     }
     Ok(())
 }
@@ -377,20 +475,17 @@ async fn save_and_test(app: &mut App) -> Result<()> {
 fn handle_confirm(key: KeyEvent, app: &mut App) -> Result<()> {
     match key.code {
         KeyCode::Char('y') | KeyCode::Char('Y') => {
-            match &app.current_view {
-                View::ClusterList => {
-                    let idx = app.list_cursor;
-                    if let Err(e) = app.profile_manager.remove(idx) {
-                        app.set_error(format!("Failed to delete: {}", e));
-                    } else {
-                        app.list_cursor = app.list_cursor.saturating_sub(1);
-                        app.set_status("Cluster deleted");
-                    }
+            if let View::ClusterList = app.current_view {
+                let idx = app.list_cursor;
+                if let Err(e) = app.profile_manager.remove(idx) {
+                    app.set_error(format!("Failed to delete: {}", e));
+                } else {
+                    app.list_cursor = app.list_cursor.saturating_sub(1);
+                    app.set_status("Cluster deleted");
                 }
-                _ => {}
             }
             app.input_mode = InputMode::Normal;
-            app.status_message = app.status_message.take().filter(|_| false); // clear confirm prompt
+            app.status_message = None;
         }
         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
             app.input_mode = InputMode::Normal;

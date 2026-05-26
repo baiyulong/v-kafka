@@ -2,6 +2,7 @@ use anyhow::Result;
 use crate::config::cluster::{AuthMechanism, ClusterConfig, SaslConfig, SchemaRegistryConfig, SslConfig};
 use crate::config::profile::{ClusterProfile, ProfileManager};
 use crate::kafka::client::KafkaClient;
+use crate::kafka::metadata::CachedMetadata;
 
 /// Top-level view/screen of the application
 #[derive(Debug, Clone, PartialEq)]
@@ -258,6 +259,12 @@ pub struct App {
     pub active_cluster: Option<ClusterProfile>,
     /// Live Kafka client for the active cluster
     pub kafka_client: Option<KafkaClient>,
+    /// Cached cluster metadata (topics, brokers)
+    pub metadata: CachedMetadata,
+    /// Is a metadata refresh currently in progress?
+    pub loading: bool,
+    /// Filter string applied to the current list view
+    pub filter: String,
     pub list_cursor: usize,
     pub scroll_offset: u64,
     pub search_input: String,
@@ -265,11 +272,17 @@ pub struct App {
     pub error_message: Option<String>,
     pub selected_topic: Option<String>,
     pub selected_partition: Option<i32>,
+    /// Cached watermarks for the selected topic: Vec<(partition_id, low, high)>
+    pub watermarks: Vec<(i32, i64, i64)>,
     pub selected_group: Option<String>,
     /// State for cluster creation/edit form
     pub cluster_form: ClusterForm,
     /// Index of cluster being edited (None = new)
     pub cluster_form_edit_index: Option<usize>,
+    /// New-topic form fields
+    pub new_topic_name: String,
+    pub new_topic_partitions: String,
+    pub new_topic_replication: String,
 }
 
 impl App {
@@ -283,6 +296,9 @@ impl App {
             profile_manager,
             active_cluster: None,
             kafka_client: None,
+            metadata: CachedMetadata::default(),
+            loading: false,
+            filter: String::new(),
             list_cursor: 0,
             scroll_offset: 0,
             search_input: String::new(),
@@ -290,9 +306,13 @@ impl App {
             error_message: None,
             selected_topic: None,
             selected_partition: None,
+            watermarks: Vec::new(),
             selected_group: None,
             cluster_form: ClusterForm::default(),
             cluster_form_edit_index: None,
+            new_topic_name: String::new(),
+            new_topic_partitions: "1".to_string(),
+            new_topic_replication: "1".to_string(),
         })
     }
 
@@ -355,6 +375,25 @@ impl App {
             self.input_mode = InputMode::Editing;
             self.navigate_to(View::ClusterForm);
         }
+    }
+
+    /// Return topics filtered by current filter string
+    pub fn filtered_topics(&self) -> Vec<&crate::kafka::metadata::TopicMeta> {
+        self.metadata.topics.iter()
+            .filter(|t| {
+                if self.filter.is_empty() {
+                    true
+                } else {
+                    t.name.to_lowercase().contains(&self.filter.to_lowercase())
+                }
+            })
+            .collect()
+    }
+
+    /// Return the currently selected topic metadata
+    pub fn selected_topic_meta(&self) -> Option<&crate::kafka::metadata::TopicMeta> {
+        let name = self.selected_topic.as_deref()?;
+        self.metadata.topics.iter().find(|t| t.name == name)
     }
 
     pub async fn on_tick(&mut self) {}

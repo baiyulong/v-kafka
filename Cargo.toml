@@ -44,3 +44,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "5"
 uuid = { version = "1", features = ["v4"] }
+
+
+[lib]
+name = "v_kafka"
+path = "src/lib.rs"
