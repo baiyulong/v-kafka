@@ -519,28 +519,39 @@ impl App {
     pub fn open_edit_cluster_form(&mut self, index: usize) {
         if let Some(cluster) = self.profile_manager.profiles.get(index) {
             let c = cluster.clone();
-            let mut form = ClusterForm::default();
-            form.name = c.name.clone();
-            form.bootstrap_servers = c.bootstrap_servers.clone();
-            form.auth_index = AUTH_MECHANISMS
-                .iter()
-                .position(|a| a == &c.auth)
-                .unwrap_or(0);
-            form.ca_cert = c.ssl.ca_cert_path.clone().unwrap_or_default();
-            form.client_cert = c.ssl.client_cert_path.clone().unwrap_or_default();
-            form.client_key = c.ssl.client_key_path.clone().unwrap_or_default();
-            form.client_key_password = c.ssl.client_key_password.clone().unwrap_or_default();
-            form.verify_hostname = c.ssl.verify_hostname;
-            form.sasl_username = c.sasl.username.clone().unwrap_or_default();
-            form.sasl_password = c.sasl.password.clone().unwrap_or_default();
-            form.kerberos_principal = c.sasl.kerberos_principal.clone().unwrap_or_default();
-            form.kerberos_keytab = c.sasl.kerberos_keytab.clone().unwrap_or_default();
-            form.kerberos_service_name = c.sasl.kerberos_service_name.clone().unwrap_or_default();
-            if let Some(sr) = &c.schema_registry {
-                form.schema_registry_url = sr.url.clone();
-                form.schema_registry_user = sr.username.clone().unwrap_or_default();
-                form.schema_registry_password = sr.password.clone().unwrap_or_default();
-            }
+            let (sr_url, sr_user, sr_pass) = c
+                .schema_registry
+                .as_ref()
+                .map(|sr| {
+                    (
+                        sr.url.clone(),
+                        sr.username.clone().unwrap_or_default(),
+                        sr.password.clone().unwrap_or_default(),
+                    )
+                })
+                .unwrap_or_default();
+            let form = ClusterForm {
+                name: c.name.clone(),
+                bootstrap_servers: c.bootstrap_servers.clone(),
+                auth_index: AUTH_MECHANISMS
+                    .iter()
+                    .position(|a| a == &c.auth)
+                    .unwrap_or(0),
+                ca_cert: c.ssl.ca_cert_path.clone().unwrap_or_default(),
+                client_cert: c.ssl.client_cert_path.clone().unwrap_or_default(),
+                client_key: c.ssl.client_key_path.clone().unwrap_or_default(),
+                client_key_password: c.ssl.client_key_password.clone().unwrap_or_default(),
+                verify_hostname: c.ssl.verify_hostname,
+                sasl_username: c.sasl.username.clone().unwrap_or_default(),
+                sasl_password: c.sasl.password.clone().unwrap_or_default(),
+                kerberos_principal: c.sasl.kerberos_principal.clone().unwrap_or_default(),
+                kerberos_keytab: c.sasl.kerberos_keytab.clone().unwrap_or_default(),
+                kerberos_service_name: c.sasl.kerberos_service_name.clone().unwrap_or_default(),
+                schema_registry_url: sr_url,
+                schema_registry_user: sr_user,
+                schema_registry_password: sr_pass,
+                ..Default::default()
+            };
             self.cluster_form = form;
             self.cluster_form_edit_index = Some(index);
             self.input_mode = InputMode::Editing;

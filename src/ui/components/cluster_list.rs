@@ -23,8 +23,7 @@ fn render_list(f: &mut Frame, area: Rect, app: &App) {
         .profile_manager
         .profiles
         .iter()
-        .enumerate()
-        .map(|(_i, cluster)| {
+        .map(|cluster| {
             let auth_badge = auth_badge(&cluster.auth);
             let is_active = app
                 .active_cluster
@@ -100,13 +99,10 @@ fn render_detail(f: &mut Frame, area: Rect, app: &App) {
                 Span::raw(auth_badge(&cluster.auth)),
             ]),
             Line::from(""),
-            if cluster.schema_registry.is_some() {
+            if let Some(sr) = &cluster.schema_registry {
                 Line::from(vec![
                     Span::styled("  Schema Registry ", Theme::key()),
-                    Span::styled(
-                        cluster.schema_registry.as_ref().unwrap().url.as_str(),
-                        Theme::success(),
-                    ),
+                    Span::styled(sr.url.as_str(), Theme::success()),
                 ])
             } else {
                 Line::from(vec![

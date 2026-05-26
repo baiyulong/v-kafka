@@ -1,21 +1,16 @@
 use serde::{Deserialize, Serialize};
 
 /// Authentication mechanism
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthMechanism {
+    #[default]
     Plaintext,
     Ssl,
     SaslPlain,
     SaslScramSha256,
     SaslScramSha512,
     Kerberos,
-}
-
-impl Default for AuthMechanism {
-    fn default() -> Self {
-        Self::Plaintext
-    }
 }
 
 /// SSL configuration

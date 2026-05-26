@@ -563,7 +563,7 @@ async fn reset_offsets_action(app: &mut App, reset_to: OffsetReset) -> Result<()
     .await;
     match result {
         Ok(Ok(())) => {
-            app.set_status(format!("Reset complete — reloading offsets…"));
+            app.set_status("Reset complete — reloading offsets…");
             load_group_offsets(app).await?;
         }
         Ok(Err(e)) => app.set_error(format!("Reset failed: {}", e)),

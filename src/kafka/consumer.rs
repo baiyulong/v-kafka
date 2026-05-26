@@ -25,7 +25,7 @@ impl KafkaMessage {
         let timestamp = msg
             .timestamp()
             .to_millis()
-            .and_then(|ms| DateTime::from_timestamp_millis(ms));
+            .and_then(DateTime::from_timestamp_millis);
         let headers = msg
             .headers()
             .map(|h| {

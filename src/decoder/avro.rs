@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 /// Avro decoder supporting both raw Avro and Confluent wire format (magic byte + schema ID).
+#[derive(Default)]
 pub struct AvroDecoder {
     registry: Option<SchemaRegistryClient>,
     /// Cache of schema_id → parsed Apache Avro Schema

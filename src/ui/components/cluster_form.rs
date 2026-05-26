@@ -111,7 +111,7 @@ fn render_text_input(f: &mut Frame, area: Rect, app: &App, field: &ClusterFormFi
         format!("{}_", value)
     } else {
         if value.is_empty() {
-            format!("  Press Enter to edit…")
+            "  Press Enter to edit…".to_string()
         } else {
             format!("  {}", value)
         }
